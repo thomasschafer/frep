@@ -1,0 +1,18 @@
+[package]
+name = "frep"
+version = "0.1.0"
+edition = "2024"
+authors = ["thomasschafer97@gmail.com"]
+description = "Command line find and replace tool"
+readme = "../README.md"
+license = "MIT"
+homepage = "https://github.com/thomasschafer/frep"
+repository = "https://github.com/thomasschafer/frep"
+keywords = ["cli", "find", "search", "replace"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+frep-core = { path = "../frep-core" }
+
+[lints]
+workspace = true

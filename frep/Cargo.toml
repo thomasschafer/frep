@@ -12,7 +12,7 @@ keywords = ["cli", "find", "search", "replace"]
 categories = ["command-line-utilities"]
 
 [dependencies]
-frep-core = { path = "../frep-core" }
+frep-core = { version = "0.1.0", path = "../frep-core" }
 
 [lints]
 workspace = true

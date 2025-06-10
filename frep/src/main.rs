@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::bail;
 use clap::Parser;
 use simple_log::LevelFilter;
 use std::{path::PathBuf, str::FromStr};
@@ -43,7 +43,7 @@ struct Args {
     exclude_files: Option<String>,
 
     /// Include hidden files and directories, such as those whose name starts with a dot (.)
-    #[arg(short = '.', long, default_value = "false")]
+    #[arg(short = '.', long, action = clap::ArgAction::SetTrue)]
     hidden: bool,
 
     /// Log level (trace, debug, info, warn, error)
@@ -55,7 +55,7 @@ struct Args {
     log_level: LevelFilter,
 
     /// Use advanced regex features (including negative look-ahead), at the cost of performance
-    #[arg(short = 'a', long, default_value = "false")]
+    #[arg(short = 'a', long, action = clap::ArgAction::SetTrue)]
     advanced_regex: bool,
 }
 
@@ -64,13 +64,13 @@ fn parse_log_level(level: &str) -> Result<LevelFilter, String> {
 }
 
 fn parse_directory(dir: &str) -> anyhow::Result<PathBuf> {
-    let path = PathBuf::from(&dir);
+    let path = PathBuf::from(dir);
     if path.is_dir() {
         Ok(path)
+    } else if path.exists() {
+        bail!("'{dir}' is not a directory. Please provide a valid directory path.")
     } else {
-        Err(anyhow!(
-            "Directory '{dir}' does not exist. Please provide a valid directory path.",
-        ))
+        bail!("Directory '{dir}' does not exist. Please provide a valid directory path.")
     }
 }
 

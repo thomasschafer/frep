@@ -1,7 +1,7 @@
-use std::str::FromStr;
-
+use anyhow::anyhow;
 use clap::Parser;
 use simple_log::LevelFilter;
+use std::{path::PathBuf, str::FromStr};
 
 mod logging;
 
@@ -19,8 +19,8 @@ struct Args {
     replace_text: Option<String>,
 
     /// Directory in which to search
-    #[arg(short, long, default_value = ".")]
-    directory: String,
+    #[arg(short, long, value_parser = parse_directory, default_value = ".")]
+    directory: PathBuf,
 
     /// Search with plain strings, rather than regex
     #[arg(short, long, action = clap::ArgAction::SetTrue)]
@@ -36,11 +36,11 @@ struct Args {
 
     /// Glob patterns, separated by commas (,), that file paths must match
     #[arg(short = 'I', long)]
-    files_to_include: Option<String>,
+    include_files: Option<String>,
 
     /// Glob patterns, separated by commas (,), that file paths must not match
     #[arg(short = 'E', long)]
-    files_to_exclude: Option<String>,
+    exclude_files: Option<String>,
 
     /// Include hidden files and directories, such as those whose name starts with a dot (.)
     #[arg(short = '.', long, default_value = "false")]
@@ -59,8 +59,19 @@ struct Args {
     advanced_regex: bool,
 }
 
-fn parse_log_level(s: &str) -> Result<LevelFilter, String> {
-    LevelFilter::from_str(s).map_err(|_| format!("Invalid log level: {s}"))
+fn parse_log_level(level: &str) -> Result<LevelFilter, String> {
+    LevelFilter::from_str(level).map_err(|_| format!("Invalid log level: {level}"))
+}
+
+fn parse_directory(dir: &str) -> anyhow::Result<PathBuf> {
+    let path = PathBuf::from(&dir);
+    if path.is_dir() {
+        Ok(path)
+    } else {
+        Err(anyhow!(
+            "Directory '{dir}' does not exist. Please provide a valid directory path.",
+        ))
+    }
 }
 
 fn main() -> anyhow::Result<()> {

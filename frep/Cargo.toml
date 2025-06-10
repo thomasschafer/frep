@@ -13,6 +13,10 @@ categories = ["command-line-utilities"]
 
 [dependencies]
 frep-core = { version = "0.1.0", path = "../frep-core" }
+anyhow = "1.0.88"
+clap = { version = "4.5.40", features = ["derive"] }
+etcetera = "0.10.0"
+simple-log = "2.3.0"
 
 [lints]
 workspace = true

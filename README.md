@@ -23,6 +23,20 @@ frep is fast. Compared against other tools that respect ignore files such as `.g
 
 ## Installation
 
+### Prebuilt binaries
+
+Download the appropriate binary for your system from the [releases page](https://github.com/thomasschafer/frep/releases/latest):
+
+| Platform | Architecture | Download file |
+|-|-|-|
+| Linux | Intel/AMD | `*-x86_64-unknown-linux-musl.tar.gz` |
+| Linux | ARM64 | `*-aarch64-unknown-linux-musl.tar.gz` |
+| macOS | Apple Silicon| `*-aarch64-apple-darwin.tar.gz` |
+| macOS | Intel | `*-x86_64-apple-darwin.tar.gz` |
+| Windows | x64 | `*-x86_64-pc-windows-msvc.zip` |
+
+After downloading, extract the binary and move it to a directory in your `PATH`.
+
 ### Cargo
 
 Ensure you have cargo installed (see [here](https://doc.rust-lang.org/cargo/getting-started/installation.html)), then run:

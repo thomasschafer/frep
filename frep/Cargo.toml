@@ -1,6 +1,6 @@
 [package]
 name = "frep"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 authors = ["thomasschafer97@gmail.com"]
 description = "Command line find and replace tool"
@@ -12,7 +12,7 @@ keywords = ["cli", "find", "search", "replace"]
 categories = ["command-line-utilities"]
 
 [dependencies]
-frep-core = { path = "../frep-core" }
+frep-core = { version = "0.1.1", path = "../frep-core" }
 anyhow = "1.0.88"
 clap = { version = "4.5.40", features = ["derive"] }
 etcetera = "0.10.0"

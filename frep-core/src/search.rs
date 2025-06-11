@@ -69,7 +69,7 @@ type FileVisitor = Box<dyn FnMut(Vec<SearchResult>) -> WalkState + Send>;
 /// It supports both fixed string and regex-based search patterns, and can handle various search
 /// options like case sensitivity and whole word matching.
 ///
-/// This struct is the main entry point for file searching operations in scooter-core.
+/// This struct is the main entry point for file searching operations in frep-core.
 #[derive(Clone, Debug)]
 pub struct FileSearcher {
     search: SearchType,
@@ -175,7 +175,7 @@ impl FileSearcher {
     /// };
     /// use regex::Regex;
     /// use ignore::{WalkState, overrides::Override};
-    /// use scooter_core::search::{FileSearcher, FileSearcherConfig, SearchResult, SearchType};
+    /// use frep_core::search::{FileSearcher, FileSearcherConfig, SearchResult, SearchType};
     ///
     /// let config = FileSearcherConfig {
     ///     search: SearchType::Pattern(Regex::new("pattern").unwrap()),

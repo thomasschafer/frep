@@ -76,7 +76,7 @@ impl<R: BufRead> Iterator for LinesSplitEndings<R> {
 ///
 /// ```
 /// use std::io::Cursor;
-/// use scooter_core::line_reader::BufReadExt;
+/// use frep_core::line_reader::BufReadExt;
 ///
 /// let cursor = Cursor::new(b"hello\nworld\r\n");
 ///
@@ -106,7 +106,7 @@ impl<R: BufRead> BufReadExt for R {}
 /// # Examples
 ///
 /// ```
-/// use scooter_core::line_reader::{split_line_ending, LineEnding};
+/// use frep_core::line_reader::{split_line_ending, LineEnding};
 ///
 /// assert_eq!(split_line_ending(b"hello\n"), (&b"hello"[..], LineEnding::Lf));
 /// assert_eq!(split_line_ending(b"hello\r\n"), (&b"hello"[..], LineEnding::CrLf));

@@ -12,6 +12,15 @@ keywords = ["cli", "find", "search", "replace"]
 categories = ["command-line-utilities"]
 
 [dependencies]
+anyhow = "1.0.98"
+content_inspector = "0.2.4"
+crossterm = "0.29.0"
+fancy-regex = "0.14.0"
+ignore = "0.4.23"
+log = "0.4.27"
+regex = "1.11.1"
+simple-log = "2.3.0"
+tempfile = "3.20.0"
 
 [lints]
 workspace = true

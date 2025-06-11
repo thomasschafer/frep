@@ -1,7 +1,10 @@
 use anyhow::bail;
 use clap::Parser;
+use frep_core::validation::SearchConfiguration;
 use simple_log::LevelFilter;
 use std::{path::PathBuf, str::FromStr};
+
+use frep_core::run;
 
 mod logging;
 
@@ -74,11 +77,30 @@ fn parse_directory(dir: &str) -> anyhow::Result<PathBuf> {
     }
 }
 
+impl<'a> From<&'a Args> for SearchConfiguration<'a> {
+    fn from(args: &'a Args) -> Self {
+        Self {
+            search_text: &args.search_text,
+            replacement_text: args.replace_text.as_deref().unwrap_or(""),
+            fixed_strings: args.fixed_strings,
+            advanced_regex: args.advanced_regex,
+            include_globs: args.include_files.as_deref(),
+            exclude_globs: args.exclude_files.as_deref(),
+            match_whole_word: args.match_whole_word,
+            match_case: !args.case_insensitive,
+            include_hidden: args.hidden,
+            directory: args.directory.clone(),
+        }
+    }
+}
+
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     logging::setup_logging(args.log_level)?;
 
-    todo!()
+    let results = run::find_and_replace((&args).into())?;
+    println!("{results}");
+    Ok(())
 }
 
 #[cfg(test)]

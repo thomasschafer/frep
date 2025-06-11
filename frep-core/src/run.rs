@@ -10,7 +10,7 @@ use crate::{
     },
 };
 
-pub fn run(search_config: SearchConfiguration) -> anyhow::Result<String> {
+pub fn find_and_replace(search_config: SearchConfiguration<'_>) -> anyhow::Result<String> {
     let mut error_handler = SimpleErrorHandler::new();
     let result = validate_search_configuration(search_config, &mut error_handler)?;
     let searcher = match result {

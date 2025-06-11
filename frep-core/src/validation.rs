@@ -2,20 +2,20 @@ use crossterm::style::Stylize;
 use fancy_regex::Regex as FancyRegex;
 use ignore::{overrides::Override, overrides::OverrideBuilder};
 use regex::Regex;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::search::{FileSearcher, FileSearcherConfig, SearchType};
 use crate::utils;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
-pub struct SearchConfiguration {
-    pub search_text: String,
-    pub replacement_text: String,
+pub struct SearchConfiguration<'a> {
+    pub search_text: &'a str,
+    pub replacement_text: &'a str,
     pub fixed_strings: bool,
     pub advanced_regex: bool,
-    pub include_globs: String,
-    pub exclude_globs: String,
+    pub include_globs: Option<&'a str>,
+    pub exclude_globs: Option<&'a str>,
     pub match_whole_word: bool,
     pub match_case: bool,
     pub include_hidden: bool,
@@ -79,11 +79,11 @@ pub enum ValidationResult<T> {
 }
 
 pub fn validate_search_configuration<H: ValidationErrorHandler>(
-    config: SearchConfiguration,
+    config: SearchConfiguration<'_>,
     error_handler: &mut H,
 ) -> anyhow::Result<ValidationResult<FileSearcher>> {
     let search_pattern = parse_search_text(
-        &config.search_text,
+        config.search_text,
         config.fixed_strings,
         config.advanced_regex,
         error_handler,
@@ -91,8 +91,8 @@ pub fn validate_search_configuration<H: ValidationErrorHandler>(
 
     let overrides = parse_overrides(
         &config.directory,
-        &config.include_globs,
-        &config.exclude_globs,
+        config.include_globs,
+        config.exclude_globs,
         error_handler,
     )?;
 
@@ -101,7 +101,7 @@ pub fn validate_search_configuration<H: ValidationErrorHandler>(
     {
         let searcher = FileSearcher::new(FileSearcherConfig {
             search: search_pattern,
-            replace: config.replacement_text,
+            replace: config.replacement_text.to_owned(),
             whole_word: config.match_whole_word,
             match_case: config.match_case,
             overrides,
@@ -149,24 +149,26 @@ fn parse_search_text<H: ValidationErrorHandler>(
 }
 
 fn parse_overrides<H: ValidationErrorHandler>(
-    dir: &PathBuf,
-    include_globs: &str,
-    exclude_globs: &str,
+    dir: &Path,
+    include_globs: Option<&str>,
+    exclude_globs: Option<&str>,
     error_handler: &mut H,
 ) -> anyhow::Result<ValidationResult<Override>> {
     let mut overrides = OverrideBuilder::new(dir);
     let mut success = true;
 
-    if let Err(e) = utils::add_overrides(&mut overrides, include_globs, "") {
-        error_handler.handle_include_files_error("Couldn't parse glob pattern", &e.to_string());
-        success = false;
+    if let Some(include_globs) = include_globs {
+        if let Err(e) = utils::add_overrides(&mut overrides, include_globs, "") {
+            error_handler.handle_include_files_error("Couldn't parse glob pattern", &e.to_string());
+            success = false;
+        }
     }
-
-    if let Err(e) = utils::add_overrides(&mut overrides, exclude_globs, "!") {
-        error_handler.handle_exclude_files_error("Couldn't parse glob pattern", &e.to_string());
-        success = false;
+    if let Some(exclude_globs) = exclude_globs {
+        if let Err(e) = utils::add_overrides(&mut overrides, exclude_globs, "!") {
+            error_handler.handle_exclude_files_error("Couldn't parse glob pattern", &e.to_string());
+            success = false;
+        }
     }
-
     if !success {
         return Ok(ValidationResult::ValidationErrors);
     }
@@ -179,15 +181,15 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
-    fn create_test_config() -> SearchConfiguration {
+    fn create_test_config<'a>() -> SearchConfiguration<'a> {
         let temp_dir = TempDir::new().unwrap();
         SearchConfiguration {
-            search_text: "test".to_string(),
-            replacement_text: "replacement".to_string(),
+            search_text: "test",
+            replacement_text: "replacement",
             fixed_strings: false,
             advanced_regex: false,
-            include_globs: "*.rs".to_string(),
-            exclude_globs: "target/*".to_string(),
+            include_globs: Some("*.rs"),
+            exclude_globs: Some("target/*"),
             match_whole_word: false,
             match_case: false,
             include_hidden: false,
@@ -210,7 +212,7 @@ mod tests {
     #[test]
     fn test_invalid_regex() {
         let mut config = create_test_config();
-        config.search_text = "[invalid regex".to_string();
+        config.search_text = "[invalid regex";
         let mut error_handler = SimpleErrorHandler::new();
 
         let result = validate_search_configuration(config, &mut error_handler);
@@ -227,7 +229,7 @@ mod tests {
     #[test]
     fn test_invalid_include_glob() {
         let mut config = create_test_config();
-        config.include_globs = "[invalid".to_string();
+        config.include_globs = Some("[invalid");
         let mut error_handler = SimpleErrorHandler::new();
 
         let result = validate_search_configuration(config, &mut error_handler);
@@ -244,7 +246,7 @@ mod tests {
     #[test]
     fn test_fixed_strings_mode() {
         let mut config = create_test_config();
-        config.search_text = "[this would be invalid regex]".to_string();
+        config.search_text = "[this would be invalid regex]";
         config.fixed_strings = true;
         let mut error_handler = SimpleErrorHandler::new();
 

@@ -1,0 +1,87 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Run clippy on all packages
+        run: cargo clippy --workspace -- -D warnings
+
+      - name: Run cargo check
+        run: cargo check
+
+  test:
+    name: Test (${{ matrix.os }})
+    needs: [check]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    timeout-minutes: 15
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run all tests
+        run: cargo test --workspace --verbose
+
+  end-to-end-test:
+    name: End-to-end test (${{ matrix.os }})
+    needs: [check]
+    strategy:
+      fail-fast: false
+      matrix:
+        # TODO: add Windows via WSL
+        os: [ubuntu-latest, macos-latest]
+    timeout-minutes: 15
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Nix
+      uses: cachix/install-nix-action@v24
+      with:
+        extra_nix_config: |
+          experimental-features = nix-command flakes
+
+    - name: Setup Nix cache
+      uses: cachix/cachix-action@v13
+      with:
+        name: nix-community
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+    - name: Run tests (small test files)
+      run: nix run .#end-to-end-test
+
+    - name: Run tests (larger repo)
+      run: nix run .#end-to-end-test -- --repo-url https://github.com/thomasschafer/helix

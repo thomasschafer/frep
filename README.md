@@ -6,7 +6,13 @@ frep is a fast find-and-replace tool. To replace the string "before" with the st
 frep before after
 ```
 
-There are a number of command-line flags to change the behaviour of frep, such as `--fixed-strings` to search without regex. Run `frep --help` for more information.
+There are a number of command-line flags to change the behaviour of frep, such as:
+
+- `--fixed-strings` (`-f`) to search without regex
+- `--advanced-regex` (`-a`) to use advanced regex features such as negative lookahead (not enabled by default for improved performance)
+- `--include-files` (`-I`) and `--exclude-files` (`-E`) to include or exclude files and directories using glob matching. For instance, `-I "*.rs, *.py"` matches all files with the `.rs` or `.py` extensions, and `-E "env/**"` excludes all files in the `env` directory
+
+Run `frep --help` to see the full list of flags.
 
 ## Performance
 
@@ -22,6 +28,10 @@ frep is fast. Compared against other tools that respect ignore files such as `.g
 <!-- BENCHMARK END -->
 
 ## Installation
+
+<!-- TODO:
+[![Packaging status](https://repology.org/badge/vertical-allrepos/frep.svg)](https://repology.org/project/frep/versions)
+-->
 
 ### Prebuilt binaries
 

@@ -20,3 +20,23 @@ frep is fast. Compared against other tools that respect ignore files such as `.g
 | `fd + sd` | 10.028 ± 0.002 | 10.025 | 10.029 | 2.66 ± 0.06 |
 
 <!-- BENCHMARK END -->
+
+## Installation
+
+### Cargo
+
+Ensure you have cargo installed (see [here](https://doc.rust-lang.org/cargo/getting-started/installation.html)), then run:
+
+```sh
+cargo install frep
+```
+
+### Building from source
+
+Ensure you have cargo installed (see [here](https://doc.rust-lang.org/cargo/getting-started/installation.html)), then run the following commands:
+
+```sh
+git clone git@github.com:thomasschafer/frep.git
+cd frep
+cargo install --path frep --locked
+```

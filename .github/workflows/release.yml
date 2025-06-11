@@ -1,0 +1,220 @@
+name: Release
+
+on:
+  pull_request: # TODO: delete
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'frep/Cargo.toml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-release:
+    name: Prepare release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get-package-info.outputs.version }}
+      should_release: ${{ steps.check-version.outputs.exists == 'false' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get package info from Cargo.toml
+        id: get-package-info
+        run: |
+          version=$(grep -m1 '^version = ' frep/Cargo.toml | cut -d '"' -f2)
+          package_name=$(grep -m1 '^name = ' frep/Cargo.toml | cut -d '"' -f2)
+          echo "version=${version}" >> $GITHUB_OUTPUT
+          echo "package_name=${package_name}" >> $GITHUB_OUTPUT
+
+      - name: Check if versions exist on crates.io
+        id: check-version
+        run: |
+          version="${{ steps.get-package-info.outputs.version }}"
+          package_name="${{ steps.get-package-info.outputs.package_name }}"
+
+          # Check if frep already exists with this version
+          if cargo search "${package_name}" | grep -q "^${package_name} = \"${version}\""; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Check if frep-core is published (required dependency)
+          core_version=$(grep -m1 'frep-core.*version' frep/Cargo.toml | grep -o '"[0-9.]*"' | tr -d '"')
+          if ! cargo search "frep-core" | grep -q "^frep-core = \"${core_version}\""; then
+            echo "Required dependency frep-core v${core_version} not found on crates.io. Waiting 30 seconds and trying again..." >&2
+            # Wait and retry - the core workflow might still be running
+            sleep 30
+            if ! cargo search "frep-core" | grep -q "^frep-core = \"${core_version}\""; then
+              echo "Required dependency frep-core v${core_version} still not found on crates.io after waiting" >&2
+              echo "exists=true" >> $GITHUB_OUTPUT
+              exit 1
+            else
+              echo "Required dependency frep-core v${core_version} found on second attempt!" >&2
+            fi
+          fi
+
+          echo "exists=false" >> $GITHUB_OUTPUT
+
+      - name: Create release
+        if: steps.check-version.outputs.exists == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${{ steps.get-package-info.outputs.version }}"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          git tag -a "v${version}" -m "Release v${version}"
+          git push origin "v${version}"
+
+          gh release create "v${version}" \
+            --title "v${version}" \
+            --generate-notes \
+            --draft  # Make it draft until binaries are uploaded
+
+  build-and-upload:
+    needs: prepare-release
+    if: needs.prepare-release.outputs.should_release == 'true'
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            use-cross: true
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+            use-cross: true
+          - os: macos-13
+            target: x86_64-apple-darwin
+            use-cross: false
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            use-cross: false
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            use-cross: false
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ matrix.target }}
+
+    - name: Handle Rust dependencies caching
+      uses: Swatinem/rust-cache@v2
+      with:
+        key: v1-${{ matrix.target }}
+
+    - name: Build binary
+      uses: clechasseur/rs-cargo@v2
+      with:
+        command: build
+        args: --release --target ${{ matrix.target }} --package frep
+        use-cross: ${{ matrix.use-cross }}
+
+    - name: Get binary name from Cargo.toml
+      shell: bash
+      run: |
+        BINARY_NAME=$(grep -m1 '^name' frep/Cargo.toml | cut -d'"' -f2 | cut -d"'" -f2)
+        echo "BINARY_NAME=$BINARY_NAME" >> $GITHUB_ENV
+
+    - name: Create release archive
+      shell: bash
+      run: |
+        cd target/${{ matrix.target }}/release
+        VERSION="${{ needs.prepare-release.outputs.version }}"
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          ARCHIVE="${{ env.BINARY_NAME }}-v${VERSION}-${{ matrix.target }}.zip"
+          7z a "$ARCHIVE" "${{ env.BINARY_NAME }}.exe"
+        else
+          ARCHIVE="${{ env.BINARY_NAME }}-v${VERSION}-${{ matrix.target }}.tar.gz"
+          tar -czvf "$ARCHIVE" "${{ env.BINARY_NAME }}"
+        fi
+
+        # Generate checksums
+        openssl dgst -r -sha256 -out "$ARCHIVE.sha256" "$ARCHIVE"
+        openssl dgst -r -sha512 -out "$ARCHIVE.sha512" "$ARCHIVE"
+
+        echo "ASSET=$ARCHIVE" >> $GITHUB_ENV
+
+    - name: Verify binary
+      shell: bash
+      run: |
+        cd target/${{ matrix.target }}/release
+        case "${{ matrix.target }}" in
+          *windows*)
+            7z x -y "$ASSET"
+            ./${{ env.BINARY_NAME }}.exe --version ;;
+          aarch64*)
+            echo "Can't test an ARM binary on a AMD64 runner" ;;
+          *)
+            tar -xvzf "$ASSET"
+            ./${{ env.BINARY_NAME }} --version ;;
+        esac
+
+    - name: Upload to release
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_REPO: ${{ github.repository }}
+      run: |
+        for file in target/${{ matrix.target }}/release/${{ env.ASSET }}*; do
+          gh release upload "v${{ needs.prepare-release.outputs.version }}" "$file" --clobber
+        done
+
+  publish:
+    needs: [prepare-release, build-and-upload]
+    if: needs.prepare-release.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Publish frep to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          cd frep
+          cargo publish
+
+      - name: Publish release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release edit "v${{ needs.prepare-release.outputs.version }}" --draft=false
+
+  ## TODO
+  # publish-to-winget:
+  #   needs: [prepare-release, publish]
+  #   if: needs.prepare-release.outputs.should_release == 'true'
+  #   runs-on: windows-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
+
+  #     - name: Publish to WinGet
+  #       uses: vedantmgoyal9/winget-releaser@main
+  #       with:
+  #         identifier: thomasschafer.frep
+  #         version: ${{ needs.prepare-release.outputs.version }}
+  #         installers-regex: "frep-v.*-x86_64-pc-windows-msvc\\.zip$"
+  #         token: ${{ secrets.WINGET_TOKEN }}
+  #         release-tag: v${{ needs.prepare-release.outputs.version }}

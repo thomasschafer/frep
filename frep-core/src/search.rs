@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::num::NonZero;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::thread::{self};
 
 use content_inspector::{ContentType, inspect};
@@ -11,8 +11,10 @@ use ignore::overrides::Override;
 use ignore::{WalkBuilder, WalkState};
 use regex::Regex;
 
-use crate::line_reader::{BufReadExt, LineEnding};
-use crate::replace::ReplaceResult;
+use crate::{
+    line_reader::{BufReadExt, LineEnding},
+    replace::{self, ReplaceResult},
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SearchResult {
@@ -50,7 +52,7 @@ pub enum SearchType {
 }
 
 impl SearchType {
-    fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         let str = match &self {
             SearchType::Pattern(r) => &r.to_string(),
             SearchType::PatternAdvanced(r) => &r.to_string(),
@@ -152,6 +154,19 @@ impl FileSearcher {
         SearchType::PatternAdvanced(fancy_regex)
     }
 
+    fn build_walker(&self) -> ignore::WalkParallel {
+        let num_threads = thread::available_parallelism()
+            .map(NonZero::get)
+            .unwrap_or(4)
+            .min(12);
+
+        WalkBuilder::new(&self.root_dir)
+            .hidden(!self.include_hidden)
+            .overrides(self.overrides.clone())
+            .threads(num_threads)
+            .build_parallel()
+    }
+
     /// Walks through files in the configured directory and processes matches.
     ///
     /// This method traverses the filesystem starting from the `root_dir` specified in the `FileSearcher`,
@@ -211,17 +226,8 @@ impl FileSearcher {
         if let Some(cancelled) = cancelled {
             cancelled.store(false, Ordering::Relaxed);
         }
-        let num_threads = thread::available_parallelism()
-            .map(NonZero::get)
-            .unwrap_or(4)
-            .min(12);
 
-        let walker = WalkBuilder::new(&self.root_dir)
-            .hidden(!self.include_hidden)
-            .overrides(self.overrides.clone())
-            .threads(num_threads)
-            .build_parallel();
-
+        let walker = self.build_walker();
         walker.run(|| {
             let mut on_file_found = file_handler();
             Box::new(move |result| {
@@ -235,10 +241,10 @@ impl FileSearcher {
                     return WalkState::Continue;
                 };
 
-                if entry.file_type().is_some_and(|ft| ft.is_file())
-                    && !Self::is_likely_binary(entry.path())
+                let path = entry.path();
+                if entry.file_type().is_some_and(|ft| ft.is_file()) && !Self::is_likely_binary(path)
                 {
-                    let results = Self::search_file(entry.path(), &self.search, &self.replace);
+                    let results = search_file(path, &self.search, &self.replace);
                     if let Some(results) = results {
                         if !results.is_empty() {
                             return on_file_found(results);
@@ -250,93 +256,38 @@ impl FileSearcher {
         });
     }
 
-    fn search_file(path: &Path, search: &SearchType, replace: &str) -> Option<Vec<SearchResult>> {
-        let mut file = match File::open(path) {
-            Ok(f) => f,
-            Err(err) => {
-                log::error!("Error opening file {}: {err}", path.display());
-                return None;
-            }
-        };
-
-        // Fast upfront binary sniff (8 KiB)
-        let mut probe = [0u8; 8192];
-        let read = file.read(&mut probe).unwrap_or(0);
-        if matches!(inspect(&probe[..read]), ContentType::BINARY) {
-            return None;
-        }
-        if file.seek(SeekFrom::Start(0)).is_err() {
-            log::error!("Failed to seek file {} to start", path.display());
-            return None;
+    pub fn walk_files_and_replace(&self, cancelled: Option<&AtomicBool>) {
+        if let Some(cancelled) = cancelled {
+            cancelled.store(false, Ordering::Relaxed);
         }
 
-        let reader = BufReader::with_capacity(16384, file);
-        let mut results = Vec::new();
-
-        let mut read_errors = 0;
-
-        for (mut line_number, line_result) in reader.lines_with_endings().enumerate() {
-            line_number += 1; // Ensure line-number is 1-indexed
-
-            let (line_bytes, line_ending) = match line_result {
-                Ok(l) => l,
-                Err(err) => {
-                    read_errors += 1;
-                    log::warn!(
-                        "Error retrieving line {line_number} of {}: {err}",
-                        path.display()
-                    );
-                    if read_errors >= 10 {
-                        break;
+        let walker = self.build_walker();
+        walker.run(|| {
+            Box::new(move |result| {
+                if let Some(cancelled) = cancelled {
+                    if cancelled.load(Ordering::Relaxed) {
+                        return WalkState::Quit;
                     }
-                    continue;
                 }
-            };
 
-            if let Ok(line) = String::from_utf8(line_bytes) {
-                if let Some(replacement) = Self::replacement_if_match(&line, search, replace) {
-                    let result = SearchResult {
-                        path: path.to_path_buf(),
-                        line_number,
-                        line,
-                        line_ending,
-                        replacement,
-                        included: true,
-                        replace_result: None,
-                    };
-                    results.push(result);
+                let Ok(entry) = result else {
+                    return WalkState::Continue;
+                };
+
+                let path = entry.path();
+                if entry.file_type().is_some_and(|ft| ft.is_file()) && !Self::is_likely_binary(path)
+                {
+                    if let Err(e) = replace::replace_all_in_file(path, &self.search, &self.replace)
+                    {
+                        log::error!(
+                            "Found error when performing replacement in {path_display}: {e}",
+                            path_display = path.display()
+                        );
+                    }
                 }
-            }
-        }
-
-        Some(results)
-    }
-
-    fn replacement_if_match(line: &str, search: &SearchType, replace: &str) -> Option<String> {
-        if line.is_empty() || search.is_empty() {
-            return None;
-        }
-
-        match search {
-            SearchType::Fixed(fixed_str) => {
-                if line.contains(fixed_str) {
-                    Some(line.replace(fixed_str, replace))
-                } else {
-                    None
-                }
-            }
-            SearchType::Pattern(pattern) => {
-                if pattern.is_match(line) {
-                    Some(pattern.replace_all(line, replace).to_string())
-                } else {
-                    None
-                }
-            }
-            SearchType::PatternAdvanced(pattern) => match pattern.is_match(line) {
-                Ok(true) => Some(pattern.replace_all(line, replace).to_string()),
-                _ => None,
-            },
-        }
+                WalkState::Continue
+            })
+        });
     }
 
     fn is_likely_binary(path: &Path) -> bool {
@@ -352,6 +303,68 @@ impl FileSearcher {
 
         false
     }
+}
+
+pub fn search_file(path: &Path, search: &SearchType, replace: &str) -> Option<Vec<SearchResult>> {
+    let mut file = match File::open(path) {
+        Ok(f) => f,
+        Err(err) => {
+            log::error!("Error opening file {}: {err}", path.display());
+            return None;
+        }
+    };
+
+    // Fast upfront binary sniff (8 KiB)
+    let mut probe = [0u8; 8192];
+    let read = file.read(&mut probe).unwrap_or(0);
+    if matches!(inspect(&probe[..read]), ContentType::BINARY) {
+        return None;
+    }
+    if file.seek(SeekFrom::Start(0)).is_err() {
+        log::error!("Failed to seek file {} to start", path.display());
+        return None;
+    }
+
+    let reader = BufReader::with_capacity(16384, file);
+    let mut results = Vec::new();
+
+    let mut read_errors = 0;
+
+    for (mut line_number, line_result) in reader.lines_with_endings().enumerate() {
+        line_number += 1; // Ensure line-number is 1-indexed
+
+        let (line_bytes, line_ending) = match line_result {
+            Ok(l) => l,
+            Err(err) => {
+                read_errors += 1;
+                log::warn!(
+                    "Error retrieving line {line_number} of {}: {err}",
+                    path.display()
+                );
+                if read_errors >= 10 {
+                    break;
+                }
+                continue;
+            }
+        };
+
+        if let Ok(line) = String::from_utf8(line_bytes) {
+            if let Some(replacement) = replace::replacement_if_match(&line, search, replace) {
+                let result = SearchResult {
+                    path: path.to_path_buf(),
+                    line_number,
+                    line,
+                    line_ending,
+                    replacement,
+                    included: true,
+                    replace_result: None,
+                };
+                results.push(result);
+            }
+        }
+    }
+
+    Some(results)
 }
 
 #[cfg(test)]
@@ -416,7 +429,7 @@ mod tests {
                 #[test]
                 fn test_basic_replacement() {
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "hello world",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
@@ -434,7 +447,7 @@ mod tests {
                 #[test]
                 fn test_case_sensitivity() {
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "hello WORLD",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
@@ -452,7 +465,7 @@ mod tests {
                 #[test]
                 fn test_word_boundaries() {
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "worldwide",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
@@ -474,7 +487,7 @@ mod tests {
                 #[test]
                 fn test_basic_replacement() {
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "hello world",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
@@ -492,7 +505,7 @@ mod tests {
                 #[test]
                 fn test_case_insensitivity() {
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "hello WORLD",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
@@ -510,7 +523,7 @@ mod tests {
                 #[test]
                 fn test_word_boundaries() {
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "worldwide",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
@@ -528,7 +541,7 @@ mod tests {
                 #[test]
                 fn test_unicode() {
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "Hello CAFÉ table",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("café".to_string()),
@@ -550,7 +563,7 @@ mod tests {
                 #[test]
                 fn test_basic_replacement() {
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "hello world",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
@@ -568,7 +581,7 @@ mod tests {
                 #[test]
                 fn test_case_sensitivity() {
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "hello WORLD",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
@@ -586,7 +599,7 @@ mod tests {
                 #[test]
                 fn test_substring_matches() {
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "worldwide",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
@@ -608,7 +621,7 @@ mod tests {
                 #[test]
                 fn test_basic_replacement() {
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "hello world",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
@@ -626,7 +639,7 @@ mod tests {
                 #[test]
                 fn test_case_insensitivity() {
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "hello WORLD",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
@@ -644,7 +657,7 @@ mod tests {
                 #[test]
                 fn test_substring_matches() {
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "WORLDWIDE",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
@@ -671,7 +684,7 @@ mod tests {
                 fn test_basic_regex() {
                     let re = Regex::new(r"w\w+d").unwrap();
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "hello world",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
@@ -690,7 +703,7 @@ mod tests {
                 fn test_case_sensitivity() {
                     let re = Regex::new(r"world").unwrap();
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "hello WORLD",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
@@ -709,7 +722,7 @@ mod tests {
                 fn test_word_boundaries() {
                     let re = Regex::new(r"world").unwrap();
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "worldwide",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
@@ -732,7 +745,7 @@ mod tests {
                 fn test_basic_regex() {
                     let re = Regex::new(r"w\w+d").unwrap();
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "hello WORLD",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
@@ -751,7 +764,7 @@ mod tests {
                 fn test_word_boundaries() {
                     let re = Regex::new(r"world").unwrap();
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "worldwide",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
@@ -770,7 +783,7 @@ mod tests {
                 fn test_special_characters() {
                     let re = Regex::new(r"\d+").unwrap();
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "test 123 number",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
@@ -793,7 +806,7 @@ mod tests {
                 fn test_basic_regex() {
                     let re = Regex::new(r"w\w+d").unwrap();
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "hello world",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
@@ -812,7 +825,7 @@ mod tests {
                 fn test_case_sensitivity() {
                     let re = Regex::new(r"world").unwrap();
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "hello WORLD",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
@@ -831,7 +844,7 @@ mod tests {
                 fn test_substring_matches() {
                     let re = Regex::new(r"world").unwrap();
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "worldwide",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
@@ -854,7 +867,7 @@ mod tests {
                 fn test_basic_regex() {
                     let re = Regex::new(r"w\w+d").unwrap();
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "hello WORLD",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
@@ -873,7 +886,7 @@ mod tests {
                 fn test_substring_matches() {
                     let re = Regex::new(r"world").unwrap();
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "WORLDWIDE",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
@@ -892,7 +905,7 @@ mod tests {
                 fn test_complex_pattern() {
                     let re = Regex::new(r"\d{3}-\d{2}-\d{4}").unwrap();
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "SSN: 123-45-6789",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
@@ -919,7 +932,7 @@ mod tests {
                 fn test_lookbehind() {
                     let re = FancyRegex::new(r"(?<=@)\w+").unwrap();
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "email: user@example.com",
                             &FileSearcher::convert_regex(
                                 &SearchType::PatternAdvanced(re),
@@ -938,7 +951,7 @@ mod tests {
                 fn test_lookahead() {
                     let re = FancyRegex::new(r"\w+(?=\.\w+$)").unwrap();
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "file: document.pdf",
                             &FileSearcher::convert_regex(
                                 &SearchType::PatternAdvanced(re),
@@ -957,7 +970,7 @@ mod tests {
                 fn test_case_sensitivity() {
                     let re = FancyRegex::new(r"world").unwrap();
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "hello WORLD",
                             &FileSearcher::convert_regex(
                                 &SearchType::PatternAdvanced(re),
@@ -980,7 +993,7 @@ mod tests {
                 fn test_lookbehind_case_insensitive() {
                     let re = FancyRegex::new(r"(?<=@)\w+").unwrap();
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "email: user@EXAMPLE.com",
                             &FileSearcher::convert_regex(
                                 &SearchType::PatternAdvanced(re),
@@ -999,7 +1012,7 @@ mod tests {
                 fn test_word_boundaries() {
                     let re = FancyRegex::new(r"world").unwrap();
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "worldwide",
                             &FileSearcher::convert_regex(
                                 &SearchType::PatternAdvanced(re),
@@ -1022,7 +1035,7 @@ mod tests {
                 fn test_complex_pattern() {
                     let re = FancyRegex::new(r"(?<=\d{4}-\d{2}-\d{2}T)\d{2}:\d{2}").unwrap();
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "Timestamp: 2023-01-15T14:30:00Z",
                             &FileSearcher::convert_regex(
                                 &SearchType::PatternAdvanced(re),
@@ -1041,7 +1054,7 @@ mod tests {
                 fn test_case_sensitivity() {
                     let re = FancyRegex::new(r"WORLD").unwrap();
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "hello world",
                             &FileSearcher::convert_regex(
                                 &SearchType::PatternAdvanced(re),
@@ -1064,7 +1077,7 @@ mod tests {
                 fn test_complex_pattern_case_insensitive() {
                     let re = FancyRegex::new(r"(?<=\[)\w+(?=\])").unwrap();
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "Tag: [WARNING] message",
                             &FileSearcher::convert_regex(
                                 &SearchType::PatternAdvanced(re),
@@ -1083,7 +1096,7 @@ mod tests {
                 fn test_unicode_support() {
                     let re = FancyRegex::new(r"\p{Greek}+").unwrap();
                     assert_eq!(
-                        FileSearcher::replacement_if_match(
+                        replace::replacement_if_match(
                             "Symbol: αβγδ",
                             &FileSearcher::convert_regex(
                                 &SearchType::PatternAdvanced(re),
@@ -1103,7 +1116,7 @@ mod tests {
         #[test]
         fn test_multiple_replacements() {
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "world hello world",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("world".to_string()),
@@ -1121,7 +1134,7 @@ mod tests {
         #[test]
         fn test_no_match() {
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "worldwide",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("world".to_string()),
@@ -1135,7 +1148,7 @@ mod tests {
                 None
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "_world_",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("world".to_string()),
@@ -1153,7 +1166,7 @@ mod tests {
         #[test]
         fn test_word_boundaries() {
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     ",world-",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("world".to_string()),
@@ -1167,7 +1180,7 @@ mod tests {
                 Some(",earth-".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "world-word",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("world".to_string()),
@@ -1181,7 +1194,7 @@ mod tests {
                 Some("earth-word".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "Hello-world!",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("world".to_string()),
@@ -1199,7 +1212,7 @@ mod tests {
         #[test]
         fn test_case_sensitive() {
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "Hello WORLD",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("world".to_string()),
@@ -1213,7 +1226,7 @@ mod tests {
                 None
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "Hello world",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("wOrld".to_string()),
@@ -1231,7 +1244,7 @@ mod tests {
         #[test]
         fn test_empty_strings() {
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("world".to_string()),
@@ -1245,7 +1258,7 @@ mod tests {
                 None
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "hello world",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("".to_string()),
@@ -1263,7 +1276,7 @@ mod tests {
         #[test]
         fn test_substring_no_match() {
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "worldwide web",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("world".to_string()),
@@ -1277,7 +1290,7 @@ mod tests {
                 None
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "underworld",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("world".to_string()),
@@ -1295,7 +1308,7 @@ mod tests {
         #[test]
         fn test_special_regex_chars() {
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "hello (world)",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("(world)".to_string()),
@@ -1309,7 +1322,7 @@ mod tests {
                 Some("hello earth".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "hello world.*",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("world.*".to_string()),
@@ -1328,7 +1341,7 @@ mod tests {
         fn test_basic_regex_patterns() {
             let re = Regex::new(r"ax*b").unwrap();
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "foo axxxxb bar",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
@@ -1342,7 +1355,7 @@ mod tests {
                 Some("foo NEW bar".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "fooaxxxxb bar",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
@@ -1361,7 +1374,7 @@ mod tests {
         fn test_patterns_with_spaces() {
             let re = Regex::new(r"hel+o world").unwrap();
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "say hello world!",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
@@ -1375,7 +1388,7 @@ mod tests {
                 Some("say hi earth!".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "helloworld",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
@@ -1394,7 +1407,7 @@ mod tests {
         fn test_multiple_matches() {
             let re = Regex::new(r"a+b+").unwrap();
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "foo aab abb",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
@@ -1408,7 +1421,7 @@ mod tests {
                 Some("foo X X".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "ab abaab abb",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
@@ -1422,7 +1435,7 @@ mod tests {
                 Some("X abaab X".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "ababaababb",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
@@ -1436,7 +1449,7 @@ mod tests {
                 None
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "ab ab aab abb",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
@@ -1456,7 +1469,7 @@ mod tests {
             let re = Regex::new(r"foo\s*bar").unwrap();
             // At start of string
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "foo bar baz",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
@@ -1471,7 +1484,7 @@ mod tests {
             );
             // At end of string
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "baz foo bar",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
@@ -1486,7 +1499,7 @@ mod tests {
             );
             // With punctuation
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "(foo bar)",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
@@ -1505,7 +1518,7 @@ mod tests {
         fn test_with_punctuation() {
             let re = Regex::new(r"a\d+b").unwrap();
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "(a123b)",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
@@ -1519,7 +1532,7 @@ mod tests {
                 Some("(X)".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "foo.a123b!bar",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
@@ -1538,7 +1551,7 @@ mod tests {
         fn test_complex_patterns() {
             let re = Regex::new(r"[a-z]+\d+[a-z]+").unwrap();
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "test9 abc123def 8xyz",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
@@ -1552,7 +1565,7 @@ mod tests {
                 Some("test9 NEW 8xyz".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "test9abc123def8xyz",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
@@ -1571,7 +1584,7 @@ mod tests {
         fn test_optional_patterns() {
             let re = Regex::new(r"colou?r").unwrap();
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "my color and colour",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
@@ -1590,7 +1603,7 @@ mod tests {
         fn test_empty_haystack() {
             let re = Regex::new(r"test").unwrap();
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
@@ -1609,7 +1622,7 @@ mod tests {
         fn test_empty_search_regex() {
             let re = Regex::new(r"").unwrap();
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "search",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
@@ -1628,7 +1641,7 @@ mod tests {
         fn test_single_char() {
             let re = Regex::new(r"a").unwrap();
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "b a c",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
@@ -1642,7 +1655,7 @@ mod tests {
                 Some("b X c".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "bac",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
@@ -1661,7 +1674,7 @@ mod tests {
         fn test_escaped_chars() {
             let re = Regex::new(r"\(\d+\)").unwrap();
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "test (123) foo",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
@@ -1680,7 +1693,7 @@ mod tests {
         fn test_with_unicode() {
             let re = Regex::new(r"λ\d+").unwrap();
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "calc λ123 β",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
@@ -1694,7 +1707,7 @@ mod tests {
                 Some("calc X β".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "calcλ123",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
@@ -1713,7 +1726,7 @@ mod tests {
         fn test_multiline_patterns() {
             let re = Regex::new(r"foo\s*\n\s*bar").unwrap();
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "test foo\nbar end",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
@@ -1727,7 +1740,7 @@ mod tests {
                 Some("test NEW end".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "test foo\n  bar end",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
@@ -1753,7 +1766,7 @@ mod tests {
             let text = "ASCII text with 世界 (CJK), Здравствуйте (Cyrillic), 안녕하세요 (Hangul), αβγδ (Greek), עִבְרִית (Hebrew)";
             let search = SearchType::Fixed("世界".to_string());
 
-            let result = FileSearcher::replacement_if_match(text, &search, "World");
+            let result = replace::replacement_if_match(text, &search, "World");
 
             assert_eq!(
                 result,
@@ -1772,10 +1785,8 @@ mod tests {
                 },
             );
 
-            assert!(
-                FileSearcher::replacement_if_match("Text 世界 more", &converted, "XX").is_some()
-            );
-            assert!(FileSearcher::replacement_if_match("Text世界more", &converted, "XX").is_none());
+            assert!(replace::replacement_if_match("Text 世界 more", &converted, "XX").is_some());
+            assert!(replace::replacement_if_match("Text世界more", &converted, "XX").is_none());
         }
 
         #[test]
@@ -1783,7 +1794,7 @@ mod tests {
             let text = "café";
             let search = SearchType::Fixed("é".to_string());
             assert_eq!(
-                FileSearcher::replacement_if_match(text, &search, "e"),
+                replace::replacement_if_match(text, &search, "e"),
                 Some("cafe".to_string())
             );
         }
@@ -1797,13 +1808,13 @@ mod tests {
             temp_file.flush().unwrap();
 
             let search = SearchType::Pattern(Regex::new(r"\p{Greek}+").unwrap());
-            let results = FileSearcher::search_file(temp_file.path(), &search, "GREEK").unwrap();
+            let results = search_file(temp_file.path(), &search, "GREEK").unwrap();
 
             assert_eq!(results.len(), 1);
             assert_eq!(results[0].replacement, "Line with Greek: GREEK");
 
             let search = SearchType::Pattern(Regex::new(r"🚀").unwrap());
-            let results = FileSearcher::search_file(temp_file.path(), &search, "ROCKET").unwrap();
+            let results = search_file(temp_file.path(), &search, "ROCKET").unwrap();
 
             assert_eq!(results.len(), 1);
             assert_eq!(results[0].replacement, "Line with Emoji: 😀 ROCKET 🌍");
@@ -1816,13 +1827,13 @@ mod tests {
 
             let search = SearchType::Pattern(Regex::new(r"\p{Cyrillic}").unwrap());
             assert_eq!(
-                FileSearcher::replacement_if_match(text, &search, "X"),
+                replace::replacement_if_match(text, &search, "X"),
                 Some("Latin A, Cyrillic X, Greek Γ, Hebrew א".to_string())
             );
 
             let search = SearchType::Pattern(Regex::new(r"\p{Greek}").unwrap());
             assert_eq!(
-                FileSearcher::replacement_if_match(text, &search, "X"),
+                replace::replacement_if_match(text, &search, "X"),
                 Some("Latin A, Cyrillic Б, Greek X, Hebrew א".to_string())
             );
         }
@@ -1834,7 +1845,7 @@ mod tests {
             let search =
                 SearchType::Pattern(Regex::new(r"Name: (\p{Han}+) \(ID: ([A-Z0-9]+)\)").unwrap());
             assert_eq!(
-                FileSearcher::replacement_if_match(text, &search, "ID $2 belongs to $1"),
+                replace::replacement_if_match(text, &search, "ID $2 belongs to $1"),
                 Some("ID A12345 belongs to 李明".to_string())
             );
         }
@@ -1846,7 +1857,7 @@ mod tests {
         #[test]
         fn test_simple_match_subword() {
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "foobarbaz",
                     &SearchType::Fixed("bar".to_string()),
                     "REPL"
@@ -1854,7 +1865,7 @@ mod tests {
                 Some("fooREPLbaz".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "foobarbaz",
                     &SearchType::Pattern(Regex::new(r"bar").unwrap()),
                     "REPL"
@@ -1862,7 +1873,7 @@ mod tests {
                 Some("fooREPLbaz".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "foobarbaz",
                     &SearchType::PatternAdvanced(FancyRegex::new(r"bar").unwrap()),
                     "REPL"
@@ -1874,7 +1885,7 @@ mod tests {
         #[test]
         fn test_no_match() {
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "foobarbaz",
                     &SearchType::Fixed("xyz".to_string()),
                     "REPL"
@@ -1882,7 +1893,7 @@ mod tests {
                 None
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "foobarbaz",
                     &SearchType::Pattern(Regex::new(r"xyz").unwrap()),
                     "REPL"
@@ -1890,7 +1901,7 @@ mod tests {
                 None
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "foobarbaz",
                     &SearchType::PatternAdvanced(FancyRegex::new(r"xyz").unwrap()),
                     "REPL"
@@ -1902,7 +1913,7 @@ mod tests {
         #[test]
         fn test_word_boundaries() {
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "foo bar baz",
                     &SearchType::Pattern(Regex::new(r"\bbar\b").unwrap()),
                     "REPL"
@@ -1910,7 +1921,7 @@ mod tests {
                 Some("foo REPL baz".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "embargo",
                     &SearchType::Pattern(Regex::new(r"\bbar\b").unwrap()),
                     "REPL"
@@ -1918,7 +1929,7 @@ mod tests {
                 None
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "foo bar baz",
                     &SearchType::PatternAdvanced(FancyRegex::new(r"\bbar\b").unwrap()),
                     "REPL"
@@ -1926,7 +1937,7 @@ mod tests {
                 Some("foo REPL baz".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "embargo",
                     &SearchType::PatternAdvanced(FancyRegex::new(r"\bbar\b").unwrap()),
                     "REPL"
@@ -1938,7 +1949,7 @@ mod tests {
         #[test]
         fn test_capture_groups() {
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "John Doe",
                     &SearchType::Pattern(Regex::new(r"(\w+)\s+(\w+)").unwrap()),
                     "$2, $1"
@@ -1946,7 +1957,7 @@ mod tests {
                 Some("Doe, John".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "John Doe",
                     &SearchType::PatternAdvanced(FancyRegex::new(r"(\w+)\s+(\w+)").unwrap()),
                     "$2, $1"
@@ -1958,7 +1969,7 @@ mod tests {
         #[test]
         fn test_lookaround() {
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "123abc456",
                     &SearchType::PatternAdvanced(
                         FancyRegex::new(r"(?<=\d{3})abc(?=\d{3})").unwrap()
@@ -1972,7 +1983,7 @@ mod tests {
         #[test]
         fn test_quantifiers() {
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "aaa123456bbb",
                     &SearchType::Pattern(Regex::new(r"\d+").unwrap()),
                     "REPL"
@@ -1980,7 +1991,7 @@ mod tests {
                 Some("aaaREPLbbb".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "abc123def456",
                     &SearchType::Pattern(Regex::new(r"\d{3}").unwrap()),
                     "REPL"
@@ -1988,7 +1999,7 @@ mod tests {
                 Some("abcREPLdefREPL".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "aaa123456bbb",
                     &SearchType::PatternAdvanced(FancyRegex::new(r"\d+").unwrap()),
                     "REPL"
@@ -1996,7 +2007,7 @@ mod tests {
                 Some("aaaREPLbbb".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "abc123def456",
                     &SearchType::PatternAdvanced(FancyRegex::new(r"\d{3}").unwrap()),
                     "REPL"
@@ -2008,7 +2019,7 @@ mod tests {
         #[test]
         fn test_special_characters() {
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "foo.bar*baz",
                     &SearchType::Fixed(".bar*".to_string()),
                     "REPL"
@@ -2016,7 +2027,7 @@ mod tests {
                 Some("fooREPLbaz".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "foo.bar*baz",
                     &SearchType::Pattern(Regex::new(r"\.bar\*").unwrap()),
                     "REPL"
@@ -2024,7 +2035,7 @@ mod tests {
                 Some("fooREPLbaz".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "foo.bar*baz",
                     &SearchType::PatternAdvanced(FancyRegex::new(r"\.bar\*").unwrap()),
                     "REPL"
@@ -2036,7 +2047,7 @@ mod tests {
         #[test]
         fn test_unicode() {
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "Hello 世界!",
                     &SearchType::Fixed("世界".to_string()),
                     "REPL"
@@ -2044,7 +2055,7 @@ mod tests {
                 Some("Hello REPL!".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "Hello 世界!",
                     &SearchType::Pattern(Regex::new(r"世界").unwrap()),
                     "REPL"
@@ -2052,7 +2063,7 @@ mod tests {
                 Some("Hello REPL!".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "Hello 世界!",
                     &SearchType::PatternAdvanced(FancyRegex::new(r"世界").unwrap()),
                     "REPL"
@@ -2064,7 +2075,7 @@ mod tests {
         #[test]
         fn test_case_insensitive() {
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "HELLO world",
                     &SearchType::Pattern(Regex::new(r"(?i)hello").unwrap()),
                     "REPL"
@@ -2072,7 +2083,7 @@ mod tests {
                 Some("REPL world".to_string())
             );
             assert_eq!(
-                FileSearcher::replacement_if_match(
+                replace::replacement_if_match(
                     "HELLO world",
                     &SearchType::PatternAdvanced(FancyRegex::new(r"(?i)hello").unwrap()),
                     "REPL"
@@ -2348,7 +2359,7 @@ mod tests {
             temp_file.flush().unwrap();
 
             let search = test_helpers::create_fixed_search("search");
-            let results = FileSearcher::search_file(temp_file.path(), &search, "replace").unwrap();
+            let results = search_file(temp_file.path(), &search, "replace").unwrap();
 
             assert_eq!(results.len(), 1);
             assert_eq!(results[0].line_number, 2);
@@ -2368,7 +2379,7 @@ mod tests {
             temp_file.flush().unwrap();
 
             let search = test_helpers::create_fixed_search("test");
-            let results = FileSearcher::search_file(temp_file.path(), &search, "replaced").unwrap();
+            let results = search_file(temp_file.path(), &search, "replaced").unwrap();
 
             assert_eq!(results.len(), 3);
             assert_eq!(results[0].line_number, 1);
@@ -2388,7 +2399,7 @@ mod tests {
             temp_file.flush().unwrap();
 
             let search = SearchType::Fixed("nonexistent".to_string());
-            let results = FileSearcher::search_file(temp_file.path(), &search, "replace").unwrap();
+            let results = search_file(temp_file.path(), &search, "replace").unwrap();
 
             assert_eq!(results.len(), 0);
         }
@@ -2402,7 +2413,7 @@ mod tests {
             temp_file.flush().unwrap();
 
             let search = SearchType::Pattern(Regex::new(r"\d+").unwrap());
-            let results = FileSearcher::search_file(temp_file.path(), &search, "XXX").unwrap();
+            let results = search_file(temp_file.path(), &search, "XXX").unwrap();
 
             assert_eq!(results.len(), 2);
             assert_eq!(results[0].replacement, "number: XXX");
@@ -2421,7 +2432,7 @@ mod tests {
             // Positive lookbehind and lookahead
             let search =
                 SearchType::PatternAdvanced(FancyRegex::new(r"(?<=\d{3})abc(?=\d{3})").unwrap());
-            let results = FileSearcher::search_file(temp_file.path(), &search, "REPLACED").unwrap();
+            let results = search_file(temp_file.path(), &search, "REPLACED").unwrap();
 
             assert_eq!(results.len(), 1);
             assert_eq!(results[0].replacement, "123REPLACED456");
@@ -2435,7 +2446,7 @@ mod tests {
             temp_file.flush().unwrap();
 
             let search = SearchType::Fixed("".to_string());
-            let results = FileSearcher::search_file(temp_file.path(), &search, "replace").unwrap();
+            let results = search_file(temp_file.path(), &search, "replace").unwrap();
 
             assert_eq!(results.len(), 0);
         }
@@ -2447,7 +2458,7 @@ mod tests {
             temp_file.flush().unwrap();
 
             let search = SearchType::Fixed("line".to_string());
-            let results = FileSearcher::search_file(temp_file.path(), &search, "X").unwrap();
+            let results = search_file(temp_file.path(), &search, "X").unwrap();
 
             assert_eq!(results.len(), 3);
             assert_eq!(results[0].line_ending, LineEnding::Lf);
@@ -2459,7 +2470,7 @@ mod tests {
         fn test_search_file_nonexistent() {
             let nonexistent_path = PathBuf::from("/this/file/does/not/exist.txt");
             let search = test_helpers::create_fixed_search("test");
-            let results = FileSearcher::search_file(&nonexistent_path, &search, "replace");
+            let results = search_file(&nonexistent_path, &search, "replace");
 
             assert!(results.is_none());
         }
@@ -2473,7 +2484,7 @@ mod tests {
             temp_file.flush().unwrap();
 
             let search = SearchType::Fixed("世界".to_string());
-            let results = FileSearcher::search_file(temp_file.path(), &search, "World").unwrap();
+            let results = search_file(temp_file.path(), &search, "World").unwrap();
 
             assert_eq!(results.len(), 1);
             assert_eq!(results[0].replacement, "Hello World!");
@@ -2488,7 +2499,7 @@ mod tests {
             temp_file.flush().unwrap();
 
             let search = test_helpers::create_fixed_search("test");
-            let results = FileSearcher::search_file(temp_file.path(), &search, "replace");
+            let results = search_file(temp_file.path(), &search, "replace");
 
             assert!(results.is_none());
         }
@@ -2508,7 +2519,7 @@ mod tests {
             temp_file.flush().unwrap();
 
             let search = SearchType::Fixed("target".to_string());
-            let results = FileSearcher::search_file(temp_file.path(), &search, "found").unwrap();
+            let results = search_file(temp_file.path(), &search, "found").unwrap();
 
             assert_eq!(results.len(), 10); // Lines 0, 100, 200, ..., 900
             assert_eq!(results[0].line_number, 1); // 1-indexed

@@ -1,13 +1,14 @@
 use crossterm::style::Stylize as _;
 use std::{
     collections::HashMap,
-    fs::File,
+    fs::{self, File},
     io::{BufReader, BufWriter, Write},
+    path::Path,
 };
 use tempfile::NamedTempFile;
 
-use crate::line_reader::BufReadExt;
-use crate::search::SearchResult;
+use crate::search::{SearchResult, SearchType};
+use crate::{line_reader::BufReadExt, search};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ReplaceResult {
@@ -67,6 +68,59 @@ pub fn replace_in_file(results: &mut [SearchResult]) -> anyhow::Result<()> {
 
     temp_output_file.persist(file_path)?;
     Ok(())
+}
+
+const MAX_FILE_SIZE: u64 = 100 * 1024 * 1024; // 100 MB
+
+fn replace_in_memory(path: &Path) -> Result<bool, std::io::Error> {
+    let size = fs::metadata(path)?.len();
+    Ok(size <= MAX_FILE_SIZE)
+}
+
+pub fn replace_all_in_file(
+    file_path: &Path,
+    search: &SearchType,
+    replace: &str,
+) -> anyhow::Result<()> {
+    if matches!(replace_in_memory(file_path), Ok(true)) {
+        let content = fs::read_to_string(file_path)?;
+        if let Some(new_content) = replacement_if_match(&content, search, replace) {
+            fs::write(file_path, new_content)?;
+        }
+    } else {
+        if let Some(mut results) = search::search_file(file_path, search, replace) {
+            replace_in_file(&mut results)?;
+        }
+    }
+
+    Ok(())
+}
+
+pub fn replacement_if_match(line: &str, search: &SearchType, replace: &str) -> Option<String> {
+    if line.is_empty() || search.is_empty() {
+        return None;
+    }
+
+    match search {
+        SearchType::Fixed(fixed_str) => {
+            if line.contains(fixed_str) {
+                Some(line.replace(fixed_str, replace))
+            } else {
+                None
+            }
+        }
+        SearchType::Pattern(pattern) => {
+            if pattern.is_match(line) {
+                Some(pattern.replace_all(line, replace).to_string())
+            } else {
+                None
+            }
+        }
+        SearchType::PatternAdvanced(pattern) => match pattern.is_match(line) {
+            Ok(true) => Some(pattern.replace_all(line, replace).to_string()),
+            _ => None,
+        },
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

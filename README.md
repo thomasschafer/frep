@@ -33,6 +33,14 @@ frep is fast. Compared against other tools that also respect ignore files such a
 [![Packaging status](https://repology.org/badge/vertical-allrepos/frep.svg)](https://repology.org/project/frep/versions)
 -->
 
+### Homebrew
+
+On macOS and Linux, you can install frep using Homebrew:
+
+```sh
+brew install thomasschafer/tap/frep
+```
+
 ### Prebuilt binaries
 
 Download the appropriate binary for your system from the [releases page](https://github.com/thomasschafer/frep/releases/latest):

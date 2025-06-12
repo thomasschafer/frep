@@ -80,6 +80,10 @@ def get_tools [frep_binary: string, search_term: string, replace_term: string] {
             command: $"rg -l ($search_term) | xargs sd '($search_term)' '($replace_term)'",
         },
         {
+            name: "fastmod",
+            command: $"fastmod --accept-all '($search_term)' '($replace_term)'",
+        },
+        {
             name: "fd + sd",
             command: $"fd --type file --exec sd '($search_term)' '($replace_term)'",
         },

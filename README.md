@@ -16,14 +16,15 @@ Run `frep --help` to see the full list of flags.
 
 ## Performance
 
-frep is fast. Compared against other tools that also respect ignore files such as `.gitignore`, it is the fastest in many scenarios. Here is a benchmark for comparison, performing a find and replace across the entire [Linux kernel repo](https://github.com/torvalds/linux), finding and replacing the string "before" with "after":
+frep is fast. Below is a benchmark for comparison, performing a find and replace across the entire [Linux kernel repo](https://github.com/torvalds/linux), finding and replacing the string "before" with "after":
 
 <!-- BENCHMARK START -->
 | Command | Mean [s] | Min [s] | Max [s] | Relative |
 |:---|---:|---:|---:|---:|
-| `frep` | 4.740 ± 0.135 | 4.608 | 4.917 | 1.00 |
-| `ripgrep + sd` | 5.255 ± 0.207 | 5.028 | 5.483 | 1.11 ± 0.05 |
-| `fd + sd` | 10.010 ± 0.000 | 10.010 | 10.011 | 2.11 ± 0.06 |
+| `frep` | 4.789 ± 0.214 | 4.630 | 5.161 | 1.06 ± 0.05 |
+| `ripgrep + sd` | 5.178 ± 0.083 | 5.075 | 5.274 | 1.14 ± 0.03 |
+| `fastmod` | 4.539 ± 0.079 | 4.464 | 4.642 | 1.00 |
+| `fd + sd` | 10.010 ± 0.000 | 10.010 | 10.011 | 2.21 ± 0.04 |
 
 <!-- BENCHMARK END -->
 

@@ -1,5 +1,5 @@
 {
-  description = "Scooter - Interactive find and replace TUI";
+  description = "frep - Find and replace CLI";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

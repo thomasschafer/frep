@@ -17,7 +17,7 @@ struct Args {
     #[arg(index = 1)]
     search_text: String,
 
-    /// Text to replace the search text with. If blank then the search text will be deleted. This can include capture groups if using search regex
+    /// Text to replace the search text with. This can include capture groups if using search regex. If left blank (and --delete is used) then the search text will be deleted
     #[arg(index = 2)]
     replace_text: Option<String>,
 
@@ -60,6 +60,24 @@ struct Args {
     /// Use advanced regex features (including negative look-ahead), at the cost of performance
     #[arg(short = 'a', long, action = clap::ArgAction::SetTrue)]
     advanced_regex: bool,
+
+    /// Delete matches
+    #[arg(short = 'D', long, action = clap::ArgAction::SetTrue)]
+    delete: bool,
+}
+
+fn validate_args(args: &Args) -> anyhow::Result<()> {
+    if args.replace_text.is_none() && !args.delete {
+        bail!(
+            "You must either specify either replacement text (`frep before after`) or use --delete to delete matches `(frep before --delete)`"
+        );
+    }
+    if args.replace_text.is_some() && args.delete {
+        bail!(
+            "You cannot specify both replacement text and the --delete flag. Use either replacement text (`frep before after`) or the --delete flag (`frep before --delete`)"
+        );
+    }
+    Ok(())
 }
 
 fn parse_log_level(level: &str) -> Result<LevelFilter, String> {
@@ -94,6 +112,7 @@ impl<'a> From<&'a Args> for SearchConfiguration<'a> {
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+    validate_args(&args)?;
     logging::setup_logging(args.log_level)?;
 
     let results = run::find_and_replace((&args).into())?;
@@ -156,5 +175,86 @@ mod tests {
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), special_dir);
+    }
+
+    fn test_args() -> Args {
+        Args {
+            search_text: "search".to_string(),
+            replace_text: Some("replace".to_string()),
+            directory: PathBuf::from("."),
+            fixed_strings: false,
+            match_whole_word: false,
+            case_insensitive: false,
+            include_files: None,
+            exclude_files: None,
+            hidden: false,
+            log_level: LevelFilter::Info,
+            advanced_regex: false,
+            delete: false,
+        }
+    }
+
+    #[test]
+    fn test_validate_args_with_replacement_text() {
+        let args = Args {
+            replace_text: Some("replace".to_string()),
+            delete: false,
+            ..test_args()
+        };
+
+        let result = validate_args(&args);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_args_with_delete_flag() {
+        let args = Args {
+            replace_text: None,
+            delete: true,
+            ..test_args()
+        };
+
+        let result = validate_args(&args);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_args_with_both_replacement_and_delete() {
+        let args = Args {
+            replace_text: Some("replace".to_string()),
+            delete: true,
+            ..test_args()
+        };
+
+        let result = validate_args(&args);
+        assert!(result.is_err());
+
+        let error_message = result.unwrap_err().to_string();
+        assert!(
+            error_message.contains("cannot specify both")
+                && error_message.contains("replacement text")
+                && error_message.contains("--delete"),
+            "Error message should explain that both options cannot be used together"
+        );
+    }
+
+    #[test]
+    fn test_validate_args_with_neither_replacement_nor_delete() {
+        let args = Args {
+            replace_text: None,
+            delete: false,
+            ..test_args()
+        };
+
+        let result = validate_args(&args);
+        assert!(result.is_err());
+
+        let error_message = result.unwrap_err().to_string();
+        assert!(
+            error_message.contains("must either specify")
+                && error_message.contains("replacement text")
+                && error_message.contains("--delete"),
+            "Error message should mention both replacement text and --delete option"
+        );
     }
 }

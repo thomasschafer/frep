@@ -21,9 +21,9 @@ frep is fast. Compared against other tools that also respect ignore files such a
 <!-- BENCHMARK START -->
 | Command | Mean [s] | Min [s] | Max [s] | Relative |
 |:---|---:|---:|---:|---:|
-| `frep` | 3.772 ± 0.080 | 3.671 | 3.890 | 1.00 |
-| `ripgrep + sd` | 3.951 ± 0.196 | 3.732 | 4.206 | 1.05 ± 0.06 |
-| `fd + sd` | 10.028 ± 0.002 | 10.025 | 10.029 | 2.66 ± 0.06 |
+| `frep` | 4.740 ± 0.135 | 4.608 | 4.917 | 1.00 |
+| `ripgrep + sd` | 5.255 ± 0.207 | 5.028 | 5.483 | 1.11 ± 0.05 |
+| `fd + sd` | 10.010 ± 0.000 | 10.010 | 10.011 | 2.11 ± 0.06 |
 
 <!-- BENCHMARK END -->
 

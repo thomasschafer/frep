@@ -71,7 +71,7 @@ pub fn replace_in_file(results: &mut [SearchResult]) -> anyhow::Result<()> {
 
 const MAX_FILE_SIZE: u64 = 100 * 1024 * 1024; // 100 MB
 
-fn replace_in_memory(path: &Path) -> Result<bool, std::io::Error> {
+fn should_replace_in_memory(path: &Path) -> Result<bool, std::io::Error> {
     let size = fs::metadata(path)?.len();
     Ok(size <= MAX_FILE_SIZE)
 }
@@ -82,23 +82,33 @@ pub fn replace_all_in_file(
     replace: &str,
 ) -> anyhow::Result<bool> {
     // Try to read into memory if not too large - if this fails, or if too large, fall back to line-by-line replacement
-    if matches!(replace_in_memory(file_path), Ok(true)) {
-        if let Ok(content) = fs::read_to_string(file_path) {
-            if let Some(new_content) = replacement_if_match(&content, search, replace) {
-                fs::write(file_path, new_content)?;
-                return Ok(true);
-            }
+    if matches!(should_replace_in_memory(file_path), Ok(true)) {
+        if let Ok(replaced) = replace_in_memory(file_path, search, replace) {
+            return Ok(replaced);
         }
     }
 
-    if let Some(mut results) = search::search_file(file_path, search, replace) {
-        if !results.is_empty() {
-            replace_in_file(&mut results)?;
-            return Ok(true);
-        }
+    replace_chunked(file_path, search, replace)
+}
+
+fn replace_chunked(file_path: &Path, search: &SearchType, replace: &str) -> anyhow::Result<bool> {
+    let mut results = search::search_file(file_path, search, replace)?;
+    if !results.is_empty() {
+        replace_in_file(&mut results)?;
+        return Ok(true);
     }
 
     Ok(false)
+}
+
+fn replace_in_memory(file_path: &Path, search: &SearchType, replace: &str) -> anyhow::Result<bool> {
+    let content = fs::read_to_string(file_path)?;
+    if let Some(new_content) = replacement_if_match(&content, search, replace) {
+        fs::write(file_path, new_content)?;
+        Ok(true)
+    } else {
+        Ok(false)
+    }
 }
 
 pub fn replacement_if_match(line: &str, search: &SearchType, replace: &str) -> Option<String> {

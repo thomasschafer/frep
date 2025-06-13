@@ -245,7 +245,7 @@ impl FileSearcher {
                 if entry.file_type().is_some_and(|ft| ft.is_file()) && !Self::is_likely_binary(path)
                 {
                     let results = search_file(path, &self.search, &self.replace);
-                    if let Some(results) = results {
+                    if let Ok(results) = results {
                         if !results.is_empty() {
                             return on_file_found(results);
                         }
@@ -331,26 +331,20 @@ impl FileSearcher {
     }
 }
 
-// TODO: return result?
-pub fn search_file(path: &Path, search: &SearchType, replace: &str) -> Option<Vec<SearchResult>> {
-    let mut file = match File::open(path) {
-        Ok(f) => f,
-        Err(err) => {
-            log::error!("Error opening file {}: {err}", path.display());
-            return None;
-        }
-    };
+pub fn search_file(
+    path: &Path,
+    search: &SearchType,
+    replace: &str,
+) -> anyhow::Result<Vec<SearchResult>> {
+    let mut file = File::open(path)?;
 
     // Fast upfront binary sniff (8 KiB)
     let mut probe = [0u8; 8192];
     let read = file.read(&mut probe).unwrap_or(0);
     if matches!(inspect(&probe[..read]), ContentType::BINARY) {
-        return None;
+        return Ok(Vec::new());
     }
-    if file.seek(SeekFrom::Start(0)).is_err() {
-        log::error!("Failed to seek file {} to start", path.display());
-        return None;
-    }
+    file.seek(SeekFrom::Start(0))?;
 
     let reader = BufReader::with_capacity(16384, file);
     let mut results = Vec::new();
@@ -391,7 +385,7 @@ pub fn search_file(path: &Path, search: &SearchType, replace: &str) -> Option<Ve
         }
     }
 
-    Some(results)
+    Ok(results)
 }
 
 #[cfg(test)]
@@ -2499,7 +2493,7 @@ mod tests {
             let search = test_helpers::create_fixed_search("test");
             let results = search_file(&nonexistent_path, &search, "replace");
 
-            assert!(results.is_none());
+            assert!(results.is_err());
         }
 
         #[test]
@@ -2528,7 +2522,8 @@ mod tests {
             let search = test_helpers::create_fixed_search("test");
             let results = search_file(temp_file.path(), &search, "replace");
 
-            assert!(results.is_none());
+            assert!(results.is_ok());
+            assert_eq!(results.unwrap().len(), 0);
         }
 
         #[test]

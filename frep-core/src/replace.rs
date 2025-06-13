@@ -81,24 +81,24 @@ pub fn replace_all_in_file(
     search: &SearchType,
     replace: &str,
 ) -> anyhow::Result<bool> {
-    let mut performed_replacement = false;
-
+    // Try to read into memory if not too large - if this fails, or if too large, fall back to line-by-line replacement
     if matches!(replace_in_memory(file_path), Ok(true)) {
-        let content = fs::read_to_string(file_path)?;
-        if let Some(new_content) = replacement_if_match(&content, search, replace) {
-            fs::write(file_path, new_content)?;
-            performed_replacement = true;
-        }
-    } else {
-        if let Some(mut results) = search::search_file(file_path, search, replace) {
-            if !results.is_empty() {
-                replace_in_file(&mut results)?;
-                performed_replacement = true;
+        if let Ok(content) = fs::read_to_string(file_path) {
+            if let Some(new_content) = replacement_if_match(&content, search, replace) {
+                fs::write(file_path, new_content)?;
+                return Ok(true);
             }
         }
     }
 
-    Ok(performed_replacement)
+    if let Some(mut results) = search::search_file(file_path, search, replace) {
+        if !results.is_empty() {
+            replace_in_file(&mut results)?;
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
 }
 
 pub fn replacement_if_match(line: &str, search: &SearchType, replace: &str) -> Option<String> {

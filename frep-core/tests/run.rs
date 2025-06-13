@@ -1354,3 +1354,51 @@ test_with_both_regex_modes_and_fixed_strings!(
         Ok(())
     }
 );
+
+test_with_both_regex_modes!(test_no_multiline_matches, |advanced_regex| async move {
+    let temp_dir = create_test_files!(
+        "multiline.txt" => text!(
+            "This is a line with START",
+            "END of pattern here that should not match.",
+            "",
+            "Another line START with",
+            "END in next line.",
+            "",
+            "START pattern on this line only END."
+        )
+    );
+
+    // Search for a pattern that would match across lines if multiline matching was enabled
+    let search_config = SearchConfiguration {
+        search_text: r"START.*END",
+        replacement_text: "REPLACED",
+        directory: temp_dir.path().to_path_buf(),
+        include_globs: Some(""),
+        exclude_globs: Some(""),
+        include_hidden: false,
+        fixed_strings: false,
+        match_case: true,
+        match_whole_word: false,
+        advanced_regex,
+    };
+
+    let result = find_and_replace(search_config);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "Success: 1 file updated".to_string(),);
+
+    // Only the pattern on line 7 should be replaced
+    assert_test_files!(
+        &temp_dir,
+        "multiline.txt" => text!(
+            "This is a line with START",
+            "END of pattern here that should not match.",
+            "",
+            "Another line START with",
+            "END in next line.",
+            "",
+            "REPLACED."
+        )
+    );
+
+    Ok(())
+});

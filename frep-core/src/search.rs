@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::num::NonZero;
@@ -313,18 +314,19 @@ impl FileSearcher {
     }
 }
 
-fn is_likely_binary(path: &Path) -> bool {
-    const BINARY_EXTENSIONS: &[&str] = &[
-        "png", "gif", "jpg", "jpeg", "ico", "svg", "pdf", "exe", "dll", "so", "bin", "class",
-        "jar", "zip", "gz", "bz2", "xz", "7z", "tar",
-    ];
-    if let Some(ext) = path.extension() {
-        if let Some(ext_str) = ext.to_str() {
-            return BINARY_EXTENSIONS.contains(&ext_str.to_lowercase().as_str());
-        }
-    }
+const BINARY_EXTENSIONS: &[&str] = &[
+    "png", "gif", "jpg", "jpeg", "ico", "svg", "pdf", "exe", "dll", "so", "bin", "class", "jar",
+    "zip", "gz", "bz2", "xz", "7z", "tar",
+];
 
-    false
+fn is_likely_binary(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext_str| {
+            BINARY_EXTENSIONS
+                .iter()
+                .any(|&bin_ext| ext_str.eq_ignore_ascii_case(bin_ext))
+        })
 }
 
 fn is_searchable(entry: &ignore::DirEntry) -> bool {

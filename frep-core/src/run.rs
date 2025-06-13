@@ -14,7 +14,10 @@ pub fn find_and_replace(search_config: SearchConfiguration<'_>) -> anyhow::Resul
         }
     };
 
-    searcher.walk_files_and_replace(None);
+    let num_files_replaced = searcher.walk_files_and_replace(None);
 
-    Ok("Success!".into())
+    Ok(format!(
+        "Success: {num_files_replaced} file{prefix} updated",
+        prefix = if num_files_replaced != 1 { "s" } else { "" },
+    ))
 }

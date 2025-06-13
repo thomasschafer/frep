@@ -81,19 +81,25 @@ pub fn replace_all_in_file(
     file_path: &Path,
     search: &SearchType,
     replace: &str,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<bool> {
+    let mut performed_replacement = false;
+
     if matches!(replace_in_memory(file_path), Ok(true)) {
         let content = fs::read_to_string(file_path)?;
         if let Some(new_content) = replacement_if_match(&content, search, replace) {
             fs::write(file_path, new_content)?;
+            performed_replacement = true;
         }
     } else {
         if let Some(mut results) = search::search_file(file_path, search, replace) {
-            replace_in_file(&mut results)?;
+            if !results.is_empty() {
+                replace_in_file(&mut results)?;
+                performed_replacement = true;
+            }
         }
     }
 
-    Ok(())
+    Ok(performed_replacement)
 }
 
 pub fn replacement_if_match(line: &str, search: &SearchType, replace: &str) -> Option<String> {

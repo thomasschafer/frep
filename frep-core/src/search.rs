@@ -256,13 +256,31 @@ impl FileSearcher {
         });
     }
 
-    pub fn walk_files_and_replace(&self, cancelled: Option<&AtomicBool>) {
+    /// Walks through files in the configured directory and replaces matches.
+    ///
+    /// This method traverses the filesystem starting from the `root_dir` specified in the `FileSearcher`,
+    /// respecting the configured overrides (include/exclude patterns) and hidden file settings.
+    /// It replaces all matches of the search pattern with the replacement text in each file.
+    ///
+    /// # Parameters
+    ///
+    /// * `cancelled` - An optional atomic boolean that can be used to signal cancellation from another thread.
+    ///   If this is set to `true` during execution, the search will stop as soon as possible.
+    ///
+    /// # Returns
+    ///
+    /// The number of files that had replacements performed in them.
+    pub fn walk_files_and_replace(&self, cancelled: Option<&AtomicBool>) -> usize {
         if let Some(cancelled) = cancelled {
             cancelled.store(false, Ordering::Relaxed);
         }
 
+        let num_files_replaced_in = std::sync::Arc::new(AtomicUsize::new(0));
+
         let walker = self.build_walker();
         walker.run(|| {
+            let counter = num_files_replaced_in.clone();
+
             Box::new(move |result| {
                 if let Some(cancelled) = cancelled {
                     if cancelled.load(Ordering::Relaxed) {
@@ -277,17 +295,25 @@ impl FileSearcher {
                 let path = entry.path();
                 if entry.file_type().is_some_and(|ft| ft.is_file()) && !Self::is_likely_binary(path)
                 {
-                    if let Err(e) = replace::replace_all_in_file(path, &self.search, &self.replace)
-                    {
-                        log::error!(
-                            "Found error when performing replacement in {path_display}: {e}",
-                            path_display = path.display()
-                        );
+                    match replace::replace_all_in_file(path, &self.search, &self.replace) {
+                        Ok(replaced_in_file) => {
+                            if replaced_in_file {
+                                counter.fetch_add(1, Ordering::Relaxed);
+                            }
+                        }
+                        Err(e) => {
+                            log::error!(
+                                "Found error when performing replacement in {path_display}: {e}",
+                                path_display = path.display()
+                            );
+                        }
                     }
                 }
                 WalkState::Continue
             })
         });
+
+        num_files_replaced_in.load(Ordering::Relaxed)
     }
 
     fn is_likely_binary(path: &Path) -> bool {
@@ -305,6 +331,7 @@ impl FileSearcher {
     }
 }
 
+// TODO: return result?
 pub fn search_file(path: &Path, search: &SearchType, replace: &str) -> Option<Vec<SearchResult>> {
     let mut file = match File::open(path) {
         Ok(f) => f,

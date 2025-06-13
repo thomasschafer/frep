@@ -83,8 +83,14 @@ pub fn replace_all_in_file(
 ) -> anyhow::Result<bool> {
     // Try to read into memory if not too large - if this fails, or if too large, fall back to line-by-line replacement
     if matches!(should_replace_in_memory(file_path), Ok(true)) {
-        if let Ok(replaced) = replace_in_memory(file_path, search, replace) {
-            return Ok(replaced);
+        match replace_in_memory(file_path, search, replace) {
+            Ok(replaced) => return Ok(replaced),
+            Err(e) => {
+                log::error!(
+                    "Found error when attempting to replace in memory for file {path_display}: {e}",
+                    path_display = file_path.display(),
+                );
+            }
         }
     }
 

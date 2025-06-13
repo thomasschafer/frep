@@ -241,10 +241,8 @@ impl FileSearcher {
                     return WalkState::Continue;
                 };
 
-                let path = entry.path();
-                if entry.file_type().is_some_and(|ft| ft.is_file()) && !Self::is_likely_binary(path)
-                {
-                    let results = search_file(path, &self.search, &self.replace);
+                if is_searchable(&entry) {
+                    let results = search_file(entry.path(), &self.search, &self.replace);
                     if let Ok(results) = results {
                         if !results.is_empty() {
                             return on_file_found(results);
@@ -292,10 +290,8 @@ impl FileSearcher {
                     return WalkState::Continue;
                 };
 
-                let path = entry.path();
-                if entry.file_type().is_some_and(|ft| ft.is_file()) && !Self::is_likely_binary(path)
-                {
-                    match replace::replace_all_in_file(path, &self.search, &self.replace) {
+                if is_searchable(&entry) {
+                    match replace::replace_all_in_file(entry.path(), &self.search, &self.replace) {
                         Ok(replaced_in_file) => {
                             if replaced_in_file {
                                 counter.fetch_add(1, Ordering::Relaxed);
@@ -304,7 +300,7 @@ impl FileSearcher {
                         Err(e) => {
                             log::error!(
                                 "Found error when performing replacement in {path_display}: {e}",
-                                path_display = path.display()
+                                path_display = entry.path().display()
                             );
                         }
                     }
@@ -315,20 +311,24 @@ impl FileSearcher {
 
         num_files_replaced_in.load(Ordering::Relaxed)
     }
+}
 
-    fn is_likely_binary(path: &Path) -> bool {
-        const BINARY_EXTENSIONS: &[&str] = &[
-            "png", "gif", "jpg", "jpeg", "ico", "svg", "pdf", "exe", "dll", "so", "bin", "class",
-            "jar", "zip", "gz", "bz2", "xz", "7z", "tar",
-        ];
-        if let Some(ext) = path.extension() {
-            if let Some(ext_str) = ext.to_str() {
-                return BINARY_EXTENSIONS.contains(&ext_str.to_lowercase().as_str());
-            }
+fn is_likely_binary(path: &Path) -> bool {
+    const BINARY_EXTENSIONS: &[&str] = &[
+        "png", "gif", "jpg", "jpeg", "ico", "svg", "pdf", "exe", "dll", "so", "bin", "class",
+        "jar", "zip", "gz", "bz2", "xz", "7z", "tar",
+    ];
+    if let Some(ext) = path.extension() {
+        if let Some(ext_str) = ext.to_str() {
+            return BINARY_EXTENSIONS.contains(&ext_str.to_lowercase().as_str());
         }
-
-        false
     }
+
+    false
+}
+
+fn is_searchable(entry: &ignore::DirEntry) -> bool {
+    entry.file_type().is_some_and(|ft| ft.is_file()) && !is_likely_binary(entry.path())
 }
 
 pub fn search_file(
@@ -2330,7 +2330,7 @@ mod tests {
             for (files, expected_binary) in test_cases {
                 for file in files {
                     assert_eq!(
-                        FileSearcher::is_likely_binary(Path::new(file)),
+                        is_likely_binary(Path::new(file)),
                         expected_binary,
                         "Binary detection failed for {file}"
                     );
@@ -2340,29 +2340,25 @@ mod tests {
 
         #[test]
         fn test_is_likely_binary_no_extension() {
-            assert!(!FileSearcher::is_likely_binary(Path::new("filename")));
-            assert!(!FileSearcher::is_likely_binary(Path::new("/path/to/file")));
+            assert!(!is_likely_binary(Path::new("filename")));
+            assert!(!is_likely_binary(Path::new("/path/to/file")));
         }
 
         #[test]
         fn test_is_likely_binary_empty_extension() {
-            assert!(!FileSearcher::is_likely_binary(Path::new("file.")));
+            assert!(!is_likely_binary(Path::new("file.")));
         }
 
         #[test]
         fn test_is_likely_binary_complex_paths() {
-            assert!(FileSearcher::is_likely_binary(Path::new(
-                "/complex/path/to/image.png"
-            )));
-            assert!(!FileSearcher::is_likely_binary(Path::new(
-                "/complex/path/to/source.rs"
-            )));
+            assert!(is_likely_binary(Path::new("/complex/path/to/image.png")));
+            assert!(!is_likely_binary(Path::new("/complex/path/to/source.rs")));
         }
 
         #[test]
         fn test_is_likely_binary_hidden_files() {
-            assert!(FileSearcher::is_likely_binary(Path::new(".hidden.png")));
-            assert!(!FileSearcher::is_likely_binary(Path::new(".hidden.txt")));
+            assert!(is_likely_binary(Path::new(".hidden.png")));
+            assert!(!is_likely_binary(Path::new(".hidden.txt")));
         }
     }
 

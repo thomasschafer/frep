@@ -21,10 +21,10 @@ frep is fast. Below is a benchmark for comparison, performing a find and replace
 <!-- BENCHMARK START -->
 | Command | Mean [s] | Min [s] | Max [s] | Relative |
 |:---|---:|---:|---:|---:|
-| `frep` | 4.410 ± 0.054 | 4.363 | 4.502 | 1.00 ± 0.02 |
-| `ripgrep + sd` | 5.059 ± 0.176 | 4.921 | 5.305 | 1.15 ± 0.04 |
-| `fastmod` | 4.404 ± 0.061 | 4.331 | 4.487 | 1.00 |
-| `fd + sd` | 10.010 ± 0.000 | 10.010 | 10.011 | 2.27 ± 0.03 |
+| `frep` | 4.402 ± 0.032 | 4.363 | 4.446 | 1.00 ± 0.03 |
+| `ripgrep + sd` | 4.916 ± 0.130 | 4.792 | 5.122 | 1.12 ± 0.04 |
+| `fastmod` | 4.398 ± 0.109 | 4.219 | 4.493 | 1.00 |
+| `fd + sd` | 10.011 ± 0.000 | 10.010 | 10.011 | 2.28 ± 0.06 |
 
 <!-- BENCHMARK END -->
 

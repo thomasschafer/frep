@@ -199,6 +199,18 @@ jobs:
         run: |
           gh release edit "v${{ needs.prepare-release.outputs.version }}" --draft=false
 
+  publish-to-homebrew:
+    needs: [prepare-release, publish]
+    if: needs.prepare-release.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update Homebrew formula
+        uses: mislav/bump-homebrew-formula-action@v3
+        with:
+          homebrew-tap: thomasschafer/homebrew-tap
+        env:
+          COMMITTER_TOKEN: ${{ secrets.COMMITTER_TOKEN }}
+
   ## TODO
   # publish-to-winget:
   #   needs: [prepare-release, publish]

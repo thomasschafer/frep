@@ -110,7 +110,9 @@ fn replace_chunked(file_path: &Path, search: &SearchType, replace: &str) -> anyh
 fn replace_in_memory(file_path: &Path, search: &SearchType, replace: &str) -> anyhow::Result<bool> {
     let content = fs::read_to_string(file_path)?;
     if let Some(new_content) = replacement_if_match(&content, search, replace) {
-        fs::write(file_path, new_content)?;
+        let mut temp_file = NamedTempFile::new_in(file_path.parent().unwrap_or(Path::new(".")))?;
+        temp_file.write_all(new_content.as_bytes())?;
+        temp_file.persist(file_path)?;
         Ok(true)
     } else {
         Ok(false)

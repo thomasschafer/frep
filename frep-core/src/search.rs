@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::num::NonZero;
@@ -243,11 +242,19 @@ impl FileSearcher {
                 };
 
                 if is_searchable(&entry) {
-                    let results = search_file(entry.path(), &self.search, &self.replace);
-                    if let Ok(results) = results {
-                        if !results.is_empty() {
-                            return on_file_found(results);
+                    let results = match search_file(entry.path(), &self.search, &self.replace) {
+                        Ok(r) => r,
+                        Err(e) => {
+                            log::warn!(
+                                "Skipping {} due to error when searching: {e}",
+                                entry.path().display()
+                            );
+                            return WalkState::Continue;
                         }
+                    };
+
+                    if !results.is_empty() {
+                        return on_file_found(results);
                     }
                 }
                 WalkState::Continue

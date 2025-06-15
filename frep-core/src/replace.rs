@@ -29,12 +29,7 @@ pub fn replace_in_file(results: &mut [SearchResult]) -> anyhow::Result<()> {
         .map(|res| (res.line_number, res))
         .collect();
 
-    let parent_dir = file_path.parent().ok_or_else(|| {
-        anyhow::anyhow!(
-            "Cannot create temp file: target path '{}' has no parent directory",
-            file_path.display()
-        )
-    })?;
+    let parent_dir = file_path.parent().unwrap_or(Path::new("."));
     let temp_output_file = NamedTempFile::new_in(parent_dir)?;
 
     // Scope the file operations so they're closed before rename
@@ -493,7 +488,7 @@ mod tests {
     }
 
     #[test]
-    fn test_replace_in_file_no_parent_directory() {
+    fn test_replace_directory_errors() {
         let mut results = vec![SearchResult {
             path: PathBuf::from("/"),
             line_number: 0,
@@ -506,9 +501,6 @@ mod tests {
 
         let result = replace_in_file(&mut results);
         assert!(result.is_err());
-        if let Err(e) = result {
-            assert!(e.to_string().contains("no parent directory"));
-        }
     }
 
     // Tests for replace_in_memory

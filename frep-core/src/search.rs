@@ -372,7 +372,9 @@ pub fn search_file(
                     path.display()
                 );
                 if read_errors >= 10 {
-                    break;
+                    anyhow::bail!(
+                        "Aborting search of {path:?}: too many read errors ({read_errors}). Most recent error: {err}",
+                    );
                 }
                 continue;
             }

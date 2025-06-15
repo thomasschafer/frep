@@ -72,10 +72,29 @@ pub fn replace_in_file(results: &mut [SearchResult]) -> anyhow::Result<()> {
 const MAX_FILE_SIZE: u64 = 100 * 1024 * 1024; // 100 MB
 
 fn should_replace_in_memory(path: &Path) -> Result<bool, std::io::Error> {
-    let size = fs::metadata(path)?.len();
-    Ok(size <= MAX_FILE_SIZE)
+    let file_size = fs::metadata(path)?.len();
+    Ok(file_size <= MAX_FILE_SIZE)
 }
 
+/// Performs search and replace operations in a file
+///
+/// This function implements a hybrid approach to file replacements:
+/// 1. For files under the `MAX_FILE_SIZE` threshold, it attempts an in-memory replacement
+/// 2. If the file is large or in-memory replacement fails, it falls back to line-by-line chunked replacement
+///
+/// This approach optimizes for performance while maintaining reasonable memory usage limits.
+///
+/// # Arguments
+///
+/// * `file_path` - Path to the file to process
+/// * `search` - The search pattern (fixed string, regex, or advanced regex)
+/// * `replace` - The replacement string
+///
+/// # Returns
+///
+/// * `Ok(true)` if replacements were made in the file
+/// * `Ok(false)` if no replacements were made (no matches found)
+/// * `Err` if any errors occurred during the operation
 pub fn replace_all_in_file(
     file_path: &Path,
     search: &SearchType,
@@ -110,7 +129,8 @@ fn replace_chunked(file_path: &Path, search: &SearchType, replace: &str) -> anyh
 fn replace_in_memory(file_path: &Path, search: &SearchType, replace: &str) -> anyhow::Result<bool> {
     let content = fs::read_to_string(file_path)?;
     if let Some(new_content) = replacement_if_match(&content, search, replace) {
-        let mut temp_file = NamedTempFile::new_in(file_path.parent().unwrap_or(Path::new(".")))?;
+        let parent_dir = file_path.parent().unwrap_or(Path::new("."));
+        let mut temp_file = NamedTempFile::new_in(parent_dir)?;
         temp_file.write_all(new_content.as_bytes())?;
         temp_file.persist(file_path)?;
         Ok(true)
@@ -119,6 +139,18 @@ fn replace_in_memory(file_path: &Path, search: &SearchType, replace: &str) -> an
     }
 }
 
+/// Performs a search and replace operation on a string if the pattern matches
+///
+/// # Arguments
+///
+/// * `line` - The string to search within
+/// * `search` - The search pattern (fixed string, regex, or advanced regex)
+/// * `replace` - The replacement string
+///
+/// # Returns
+///
+/// * `Some(String)` containing the string with replacements if matches were found
+/// * `None` if no matches were found
 pub fn replacement_if_match(line: &str, search: &SearchType, replace: &str) -> Option<String> {
     if line.is_empty() || search.is_empty() {
         return None;

@@ -1,6 +1,6 @@
 [package]
 name = "frep"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 authors = ["thomasschafer97@gmail.com"]
 description = "Command line find and replace tool"

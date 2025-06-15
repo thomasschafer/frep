@@ -38,10 +38,7 @@ test_with_both_regex_modes_and_fixed_strings!(
 
         let result = find_and_replace(search_config);
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            "Successful replacements (lines): 4".to_owned(),
-        );
+        assert_eq!(result.unwrap(), "Success: 3 files updated".to_string());
 
         assert_test_files!(
             &temp_dir,
@@ -99,10 +96,7 @@ test_with_both_regex_modes!(
 
         let result = find_and_replace(search_config);
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            "Successful replacements (lines): 6".to_string(),
-        );
+        assert_eq!(result.unwrap(), "Success: 3 files updated".to_string());
 
         assert_test_files!(
             &temp_dir,
@@ -154,10 +148,7 @@ test_with_both_regex_modes!(
 
         let result = find_and_replace(search_config);
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            "Successful replacements (lines): 2".to_string(),
-        );
+        assert_eq!(result.unwrap(), "Success: 1 file updated".to_string());
 
         let search_config = SearchConfiguration {
             search_text: r"\[(\d{4})-(\d{2})-(\d{2})\]",
@@ -174,10 +165,7 @@ test_with_both_regex_modes!(
 
         let result = find_and_replace(search_config);
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            "Successful replacements (lines): 2".to_string(),
-        );
+        assert_eq!(result.unwrap(), "Success: 1 file updated".to_string());
 
         assert_test_files!(
             &temp_dir,
@@ -232,10 +220,7 @@ async fn test_headless_advanced_regex_features() -> anyhow::Result<()> {
     };
 
     let result = find_and_replace(search_config);
-    assert_eq!(
-        result.unwrap(),
-        "Successful replacements (lines): 1".to_string(),
-    );
+    assert_eq!(result.unwrap(), "Success: 1 file updated".to_string());
 
     // Positive lookbehind - match numbers after headings
     let search_config = SearchConfiguration {
@@ -252,10 +237,7 @@ async fn test_headless_advanced_regex_features() -> anyhow::Result<()> {
     };
 
     let result = find_and_replace(search_config);
-    assert_eq!(
-        result.unwrap(),
-        "Successful replacements (lines): 1".to_string(),
-    );
+    assert_eq!(result.unwrap(), "Success: 1 file updated".to_string());
 
     // Add spaces after commas in CSV file
     let search_config = SearchConfiguration {
@@ -272,10 +254,7 @@ async fn test_headless_advanced_regex_features() -> anyhow::Result<()> {
     };
 
     let result = find_and_replace(search_config);
-    assert_eq!(
-        result.unwrap(),
-        "Successful replacements (lines): 4".to_string(),
-    );
+    assert_eq!(result.unwrap(), "Success: 1 file updated".to_string());
 
     assert_test_files!(
         &temp_dir,
@@ -343,10 +322,7 @@ test_with_both_regex_modes_and_fixed_strings!(
 
         let result = find_and_replace(search_config);
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            "Successful replacements (lines): 4".to_string(),
-        );
+        assert_eq!(result.unwrap(), "Success: 4 files updated".to_string());
 
         assert_test_files!(
             &temp_dir,
@@ -388,10 +364,7 @@ test_with_both_regex_modes_and_fixed_strings!(
 
         let result = find_and_replace(search_config);
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            "Successful replacements (lines): 2".to_string(),
-        );
+        assert_eq!(result.unwrap(), "Success: 2 files updated".to_string());
 
         assert_test_files!(
             &temp_dir,
@@ -433,10 +406,7 @@ test_with_both_regex_modes_and_fixed_strings!(
 
         let result = find_and_replace(search_config);
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            "Successful replacements (lines): 2".to_string(),
-        );
+        assert_eq!(result.unwrap(), "Success: 2 files updated".to_string());
 
         assert_test_files!(
             &temp_dir,
@@ -496,10 +466,7 @@ test_with_both_regex_modes_and_fixed_strings!(
 
         let result = find_and_replace(search_config);
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            "Successful replacements (lines): 2".to_string(),
-        );
+        assert_eq!(result.unwrap(), "Success: 2 files updated".to_string());
 
         assert_test_files!(
             &temp_dir,
@@ -549,10 +516,7 @@ test_with_both_regex_modes_and_fixed_strings!(
 
         let result = find_and_replace(search_config);
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            "Successful replacements (lines): 2".to_string(),
-        );
+        assert_eq!(result.unwrap(), "Success: 2 files updated".to_string());
 
         assert_test_files!(
             &temp_dir1,
@@ -595,10 +559,7 @@ test_with_both_regex_modes_and_fixed_strings!(
 
         let result = find_and_replace(search_config);
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            "Successful replacements (lines): 5".to_string(),
-        );
+        assert_eq!(result.unwrap(), "Success: 2 files updated".to_string());
 
         assert_test_files!(
             &temp_dir2,
@@ -643,10 +604,7 @@ test_with_both_regex_modes_and_fixed_strings!(
 
         let result = find_and_replace(search_config);
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            "Successful replacements (lines): 1".to_string(),
-        );
+        assert_eq!(result.unwrap(), "Success: 1 file updated".to_string());
 
         assert_test_files!(
             &temp_dir,
@@ -694,10 +652,7 @@ test_with_both_regex_modes_and_fixed_strings!(
 
         let result = find_and_replace(search_config);
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            "Successful replacements (lines): 4".to_string(),
-        );
+        assert_eq!(result.unwrap(), "Success: 2 files updated".to_string());
 
         assert_test_files!(
             &temp_dir,
@@ -739,10 +694,7 @@ test_with_both_regex_modes_and_fixed_strings!(
 
         let result = find_and_replace(search_config);
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            "Successful replacements (lines): 2".to_string(),
-        );
+        assert_eq!(result.unwrap(), "Success: 2 files updated".to_string());
 
         assert_test_files!(
             &temp_dir,
@@ -789,10 +741,7 @@ test_with_both_regex_modes_and_fixed_strings!(
 
         let result = find_and_replace(search_config);
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            "Successful replacements (lines): 1".to_string(),
-        );
+        assert_eq!(result.unwrap(), "Success: 1 file updated".to_string());
 
         // Only visible file should be modified, hidden files untouched
         assert_test_files!(
@@ -824,10 +773,7 @@ test_with_both_regex_modes_and_fixed_strings!(
 
         let result = find_and_replace(search_config);
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            "Successful replacements (lines): 2".to_string(),
-        );
+        assert_eq!(result.unwrap(), "Success: 2 files updated".to_string());
 
         // Now all files should be modified
         assert_test_files!(
@@ -979,10 +925,7 @@ test_with_both_regex_modes_and_fixed_strings!(
 
         let result = find_and_replace(search_config);
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            "Successful replacements (lines): 2".to_owned(),
-        );
+        assert_eq!(result.unwrap(), "Success: 2 files updated".to_string());
 
         // Verify only .txt files were modified
         assert_test_files!(
@@ -1036,10 +979,7 @@ test_with_both_regex_modes_and_fixed_strings!(
             advanced_regex,
         });
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            "Successful replacements (lines): 0".to_owned(),
-        );
+        assert_eq!(result.unwrap(), "Success: 0 files updated".to_string());
 
         Ok(())
     }
@@ -1101,10 +1041,7 @@ test_with_both_regex_modes_and_fixed_strings!(
 
         let result = find_and_replace(search_config);
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            "Successful replacements (lines): 2".to_owned(),
-        );
+        assert_eq!(result.unwrap(), "Success: 2 files updated".to_string());
 
         // Verify non-.txt files were modified
         assert_test_files!(
@@ -1248,10 +1185,7 @@ test_with_both_regex_modes_and_fixed_strings!(
 
         let result = find_and_replace(search_config);
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            "Successful replacements (lines): 6".to_owned(),
-        );
+        assert_eq!(result.unwrap(), "Success: 3 files updated".to_string());
 
         // Verify only source .rs files were modified, not test files or docs
         assert_test_files!(
@@ -1385,10 +1319,7 @@ test_with_both_regex_modes_and_fixed_strings!(
 
         let result = find_and_replace(search_config);
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            "Successful replacements (lines): 4".to_owned(),
-        );
+        assert_eq!(result.unwrap(), "Success: 2 files updated".to_string());
 
         assert_test_files!(
             &temp_dir,
@@ -1423,3 +1354,51 @@ test_with_both_regex_modes_and_fixed_strings!(
         Ok(())
     }
 );
+
+test_with_both_regex_modes!(test_no_multiline_matches, |advanced_regex| async move {
+    let temp_dir = create_test_files!(
+        "multiline.txt" => text!(
+            "This is a line with START",
+            "END of pattern here that should not match.",
+            "",
+            "Another line START with",
+            "END in next line.",
+            "",
+            "START pattern on this line only END."
+        )
+    );
+
+    // Search for a pattern that would match across lines if multiline matching was enabled
+    let search_config = SearchConfiguration {
+        search_text: r"START.*END",
+        replacement_text: "REPLACED",
+        directory: temp_dir.path().to_path_buf(),
+        include_globs: Some(""),
+        exclude_globs: Some(""),
+        include_hidden: false,
+        fixed_strings: false,
+        match_case: true,
+        match_whole_word: false,
+        advanced_regex,
+    };
+
+    let result = find_and_replace(search_config);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "Success: 1 file updated".to_string());
+
+    // Only the pattern on line 7 should be replaced
+    assert_test_files!(
+        &temp_dir,
+        "multiline.txt" => text!(
+            "This is a line with START",
+            "END of pattern here that should not match.",
+            "",
+            "Another line START with",
+            "END in next line.",
+            "",
+            "REPLACED."
+        )
+    );
+
+    Ok(())
+});

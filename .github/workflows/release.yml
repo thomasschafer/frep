@@ -208,6 +208,10 @@ jobs:
         uses: mislav/bump-homebrew-formula-action@v3
         with:
           homebrew-tap: thomasschafer/homebrew-tap
+          base-branch: main
+          formula-name: frep
+          tag-name: "v${{ needs.prepare-release.outputs.version }}"
+          commit-message: "{{formulaName}} {{version}} (automated)"
         env:
           COMMITTER_TOKEN: ${{ secrets.COMMITTER_TOKEN }}
 

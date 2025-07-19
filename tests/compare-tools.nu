@@ -212,9 +212,7 @@ def run_benchmark [project_dir: string, search: string, replace: string, frep_bi
     $benchmark_exit_code
 }
 
-def run_e2e_tests [replacement_dir: string, all_tools: list, repo_url: string = ""] {
-    print "Running end-to-end tests..."
-
+def test_find_and_replace_results [replacement_dir: string, all_tools: list, repo_url: string = ""] {
     let test_source_dir = setup_test_data $replacement_dir $repo_url
 
     let tool_results = $all_tools | each {|tool|
@@ -231,6 +229,24 @@ def run_e2e_tests [replacement_dir: string, all_tools: list, repo_url: string = 
     } else {
         print "❌ SOME TESTS FAILED"
         1
+    }
+}
+
+def test_errors_on_stdin [frep_binary: string, replacement_dir: string, repo_url: string = ""] {
+    print "Testing stdin rejection..."
+
+    let test_source_dir = setup_test_data $replacement_dir $repo_url
+
+    let result = (do { echo "some content" | ^$frep_binary foo bar } | complete)
+
+    if $result.exit_code != 0 or (not ($result.stderr | str contains "does not support stdin")) {
+        print "✅ PASSED: frep correctly rejects stdin input"
+    } else {
+        print "❌ FAILED: frep should reject stdin input"
+        print $"Exit code: ($result.exit_code)"
+        print $"Stderr: ($result.stderr)"
+        print $"Stdout: ($result.stdout)"
+        exit 1
     }
 }
 
@@ -269,7 +285,10 @@ def main [mode: string, --update-readme, --repo-url: string = ""] {
         let exit_code = if $mode == "benchmark" {
             run_benchmark $project_dir $search_term $replace_term $frep_binary $update_readme $repo_url
         } else if $mode == "test" {
-            run_e2e_tests $replacement_dir $all_tools $repo_url
+            print "Running end-to-end tests..."
+            test_find_and_replace_results $replacement_dir $all_tools $repo_url
+            test_errors_on_stdin $frep_binary $replacement_dir $repo_url
+            0
         }
 
         # Cleanup

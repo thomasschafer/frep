@@ -2,7 +2,7 @@ use anyhow::bail;
 use clap::Parser;
 use frep_core::validation::SearchConfiguration;
 use simple_log::LevelFilter;
-use std::{path::PathBuf, str::FromStr};
+use std::{io::IsTerminal, path::PathBuf, str::FromStr};
 
 use frep_core::run;
 
@@ -112,6 +112,11 @@ impl<'a> From<&'a Args> for SearchConfiguration<'a> {
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+
+    if !std::io::stdin().is_terminal() {
+        bail!("frep does not support stdin input. Usage: frep <search> <replace>");
+    }
+
     validate_args(&args)?;
     logging::setup_logging(args.log_level)?;
 

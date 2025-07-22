@@ -12,7 +12,7 @@ keywords = ["cli", "find", "search", "replace"]
 categories = ["command-line-utilities"]
 
 [dependencies]
-frep-core = { version = "0.1.2" }
+frep-core = { version = "0.1.2" }                    # TODO(autosearch): bump in follow-up PR
 anyhow = "1.0.88"
 clap = { version = "4.5.41", features = ["derive"] }
 etcetera = "0.10.0"

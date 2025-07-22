@@ -90,6 +90,16 @@ pub struct FileSearcher {
     include_hidden: bool,
 }
 
+impl FileSearcher {
+    pub fn search(&self) -> &SearchType {
+        &self.search
+    }
+
+    pub fn replace(&self) -> &String {
+        &self.replace
+    }
+}
+
 /// Options for regex pattern conversion
 #[derive(Clone, Copy, Debug)]
 pub struct RegexOptions {

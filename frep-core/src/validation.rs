@@ -4,7 +4,7 @@ use ignore::{overrides::Override, overrides::OverrideBuilder};
 use regex::Regex;
 use std::path::{Path, PathBuf};
 
-use crate::search::{FileSearcher, FileSearcherConfig, SearchType};
+use crate::search::{FileSearcherConfig, SearchType};
 use crate::utils;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -81,7 +81,7 @@ pub enum ValidationResult<T> {
 pub fn validate_search_configuration<H: ValidationErrorHandler>(
     config: SearchConfiguration<'_>,
     error_handler: &mut H,
-) -> anyhow::Result<ValidationResult<FileSearcher>> {
+) -> anyhow::Result<ValidationResult<FileSearcherConfig>> {
     let search_pattern = parse_search_text(
         config.search_text,
         config.fixed_strings,
@@ -99,7 +99,7 @@ pub fn validate_search_configuration<H: ValidationErrorHandler>(
     if let (ValidationResult::Success(search_pattern), ValidationResult::Success(overrides)) =
         (search_pattern, overrides)
     {
-        let searcher = FileSearcher::new(FileSearcherConfig {
+        let config = FileSearcherConfig {
             search: search_pattern,
             replace: config.replacement_text.to_owned(),
             whole_word: config.match_whole_word,
@@ -107,8 +107,8 @@ pub fn validate_search_configuration<H: ValidationErrorHandler>(
             overrides,
             root_dir: config.directory,
             include_hidden: config.include_hidden,
-        });
-        Ok(ValidationResult::Success(searcher))
+        };
+        Ok(ValidationResult::Success(config))
     } else {
         Ok(ValidationResult::ValidationErrors)
     }

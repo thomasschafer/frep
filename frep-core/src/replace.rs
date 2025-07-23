@@ -116,8 +116,10 @@ pub fn add_replacement(
     search: &SearchType,
     replace: &str,
 ) -> SearchResultWithReplacement {
-    let replacement = replacement_if_match(&search_result.line, search, replace)
-        .expect("Called add_replacement with non-matching search result {search_result:?}");
+    let replacement =
+        replacement_if_match(&search_result.line, search, replace).unwrap_or_else(|| {
+            panic!("Called add_replacement with non-matching search result {search_result:?}")
+        });
     SearchResultWithReplacement {
         search_result,
         replacement,

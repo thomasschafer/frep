@@ -115,17 +115,13 @@ pub fn add_replacement(
     search_result: SearchResult,
     search: &SearchType,
     replace: &str,
-) -> SearchResultWithReplacement {
-    let replacement =
-        replacement_if_match(&search_result.line, search, replace).unwrap_or_else(|| {
-            panic!("Called add_replacement with non-matching search result {search_result:?}")
-        });
-    SearchResultWithReplacement {
+) -> Option<SearchResultWithReplacement> {
+    let replacement = replacement_if_match(&search_result.line, search, replace)?;
+    Some(SearchResultWithReplacement {
         search_result,
         replacement,
-
         replace_result: None,
-    }
+    })
 }
 
 fn replace_chunked(file_path: &Path, search: &SearchType, replace: &str) -> anyhow::Result<bool> {
@@ -133,7 +129,11 @@ fn replace_chunked(file_path: &Path, search: &SearchType, replace: &str) -> anyh
     if !search_results.is_empty() {
         let mut replacement_results = search_results
             .into_iter()
-            .map(|r| add_replacement(r, search, replace))
+            .map(|r| {
+                add_replacement(r, search, replace).unwrap_or_else(|| {
+                    panic!("Called add_replacement with non-matching search result")
+                })
+            })
             .collect::<Vec<_>>();
         replace_in_file(&mut replacement_results)?;
         return Ok(true);

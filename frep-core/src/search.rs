@@ -23,12 +23,17 @@ pub struct SearchResult {
     pub line_number: usize,
     pub line: String,
     pub line_ending: LineEnding,
-    pub replacement: String,
     pub included: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SearchResultWithReplacement {
+    pub search_result: SearchResult,
+    pub replacement: String,
     pub replace_result: Option<ReplaceResult>,
 }
 
-impl SearchResult {
+impl SearchResultWithReplacement {
     pub fn display_error(&self) -> (String, &str) {
         let error = match &self.replace_result {
             Some(ReplaceResult::Error(error)) => error,
@@ -38,7 +43,11 @@ impl SearchResult {
             }
         };
 
-        let path_display = format!("{}:{}", self.path.display(), self.line_number);
+        let path_display = format!(
+            "{}:{}",
+            self.search_result.path.display(),
+            self.search_result.line_number
+        );
 
         (path_display, error)
     }
@@ -81,8 +90,18 @@ pub struct FileSearcher {
     include_hidden: bool,
 }
 
+impl FileSearcher {
+    pub fn search(&self) -> &SearchType {
+        &self.search
+    }
+
+    pub fn replace(&self) -> &String {
+        &self.replace
+    }
+}
+
 /// Options for regex pattern conversion
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct RegexOptions {
     /// Whether to match only whole words (bounded by non-word characters)
     pub whole_word: bool,
@@ -91,6 +110,7 @@ pub struct RegexOptions {
 }
 
 /// Configuration for creating a new `FileSearcher`.
+#[derive(Clone, Debug)]
 pub struct FileSearcherConfig {
     /// The pattern to search for (fixed string or regex)
     pub search: SearchType,
@@ -123,7 +143,7 @@ impl FileSearcher {
                 whole_word: config.whole_word,
                 match_case: config.match_case,
             };
-            Self::convert_regex(&config.search, options)
+            Self::convert_regex(&config.search, &options)
         };
         Self {
             search,
@@ -134,7 +154,7 @@ impl FileSearcher {
         }
     }
 
-    fn convert_regex(search: &SearchType, options: RegexOptions) -> SearchType {
+    fn convert_regex(search: &SearchType, options: &RegexOptions) -> SearchType {
         let mut search_regex_str = match search {
             SearchType::Fixed(fixed_str) => regex::escape(fixed_str),
             SearchType::Pattern(pattern) => pattern.as_str().to_owned(),
@@ -242,7 +262,7 @@ impl FileSearcher {
                 };
 
                 if is_searchable(&entry) {
-                    let results = match search_file(entry.path(), &self.search, &self.replace) {
+                    let results = match search_file(entry.path(), &self.search) {
                         Ok(r) => r,
                         Err(e) => {
                             log::warn!(
@@ -340,11 +360,18 @@ fn is_searchable(entry: &ignore::DirEntry) -> bool {
     entry.file_type().is_some_and(|ft| ft.is_file()) && !is_likely_binary(entry.path())
 }
 
-pub fn search_file(
-    path: &Path,
-    search: &SearchType,
-    replace: &str,
-) -> anyhow::Result<Vec<SearchResult>> {
+pub fn contains_search(line: &str, search: &SearchType) -> bool {
+    match search {
+        SearchType::Fixed(fixed_str) => line.contains(fixed_str),
+        SearchType::Pattern(pattern) => pattern.is_match(line),
+        SearchType::PatternAdvanced(pattern) => pattern.is_match(line).is_ok_and(|r| r),
+    }
+}
+
+pub fn search_file(path: &Path, search: &SearchType) -> anyhow::Result<Vec<SearchResult>> {
+    if search.is_empty() {
+        return Ok(vec![]);
+    }
     let mut file = File::open(path)?;
 
     // Fast upfront binary sniff (8 KiB)
@@ -381,15 +408,13 @@ pub fn search_file(
         };
 
         if let Ok(line) = String::from_utf8(line_bytes) {
-            if let Some(replacement) = replace::replacement_if_match(&line, search, replace) {
+            if contains_search(&line, search) {
                 let result = SearchResult {
                     path: path.to_path_buf(),
                     line_number,
                     line,
                     line_ending,
-                    replacement,
                     included: true,
-                    replace_result: None,
                 };
                 results.push(result);
             }
@@ -406,18 +431,20 @@ mod tests {
     mod test_helpers {
         use super::*;
 
-        pub fn create_test_search_result(
+        pub fn create_test_search_result_with_replacement(
             path: &str,
             line_number: usize,
             replace_result: Option<ReplaceResult>,
-        ) -> SearchResult {
-            SearchResult {
-                path: PathBuf::from(path),
-                line_number,
-                line: "test line".to_string(),
-                line_ending: LineEnding::Lf,
+        ) -> SearchResultWithReplacement {
+            SearchResultWithReplacement {
+                search_result: SearchResult {
+                    path: PathBuf::from(path),
+                    line_number,
+                    line: "test line".to_string(),
+                    line_ending: LineEnding::Lf,
+                    included: true,
+                },
                 replacement: "replacement".to_string(),
-                included: true,
                 replace_result,
             }
         }
@@ -465,7 +492,7 @@ mod tests {
                             "hello world",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: true,
                                     match_case: true,
                                 }
@@ -483,7 +510,7 @@ mod tests {
                             "hello WORLD",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: true,
                                     match_case: true,
                                 }
@@ -501,7 +528,7 @@ mod tests {
                             "worldwide",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: true,
                                     match_case: true,
                                 }
@@ -523,7 +550,7 @@ mod tests {
                             "hello world",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: true,
                                     match_case: false,
                                 }
@@ -541,7 +568,7 @@ mod tests {
                             "hello WORLD",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: true,
                                     match_case: false,
                                 }
@@ -559,7 +586,7 @@ mod tests {
                             "worldwide",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: true,
                                     match_case: false,
                                 }
@@ -577,7 +604,7 @@ mod tests {
                             "Hello CAFÉ table",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("café".to_string()),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: true,
                                     match_case: false,
                                 }
@@ -599,7 +626,7 @@ mod tests {
                             "hello world",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: false,
                                     match_case: true,
                                 }
@@ -617,7 +644,7 @@ mod tests {
                             "hello WORLD",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: false,
                                     match_case: true,
                                 }
@@ -635,7 +662,7 @@ mod tests {
                             "worldwide",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: false,
                                     match_case: true,
                                 }
@@ -657,7 +684,7 @@ mod tests {
                             "hello world",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: false,
                                     match_case: false,
                                 }
@@ -675,7 +702,7 @@ mod tests {
                             "hello WORLD",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: false,
                                     match_case: false,
                                 }
@@ -693,7 +720,7 @@ mod tests {
                             "WORLDWIDE",
                             &FileSearcher::convert_regex(
                                 &SearchType::Fixed("world".to_string()),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: false,
                                     match_case: false,
                                 }
@@ -720,7 +747,7 @@ mod tests {
                             "hello world",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: true,
                                     match_case: true,
                                 }
@@ -739,7 +766,7 @@ mod tests {
                             "hello WORLD",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: true,
                                     match_case: true,
                                 }
@@ -758,7 +785,7 @@ mod tests {
                             "worldwide",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: true,
                                     match_case: true,
                                 }
@@ -781,7 +808,7 @@ mod tests {
                             "hello WORLD",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: true,
                                     match_case: false,
                                 }
@@ -800,7 +827,7 @@ mod tests {
                             "worldwide",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: true,
                                     match_case: false,
                                 }
@@ -819,7 +846,7 @@ mod tests {
                             "test 123 number",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: true,
                                     match_case: false,
                                 }
@@ -842,7 +869,7 @@ mod tests {
                             "hello world",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: false,
                                     match_case: true,
                                 }
@@ -861,7 +888,7 @@ mod tests {
                             "hello WORLD",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: false,
                                     match_case: true,
                                 }
@@ -880,7 +907,7 @@ mod tests {
                             "worldwide",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: false,
                                     match_case: true,
                                 }
@@ -903,7 +930,7 @@ mod tests {
                             "hello WORLD",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: false,
                                     match_case: false,
                                 }
@@ -922,7 +949,7 @@ mod tests {
                             "WORLDWIDE",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: false,
                                     match_case: false,
                                 }
@@ -941,7 +968,7 @@ mod tests {
                             "SSN: 123-45-6789",
                             &FileSearcher::convert_regex(
                                 &SearchType::Pattern(re),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: false,
                                     match_case: false,
                                 }
@@ -968,7 +995,7 @@ mod tests {
                             "email: user@example.com",
                             &FileSearcher::convert_regex(
                                 &SearchType::PatternAdvanced(re),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: true,
                                     match_case: true,
                                 }
@@ -987,7 +1014,7 @@ mod tests {
                             "file: document.pdf",
                             &FileSearcher::convert_regex(
                                 &SearchType::PatternAdvanced(re),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: true,
                                     match_case: true,
                                 }
@@ -1006,7 +1033,7 @@ mod tests {
                             "hello WORLD",
                             &FileSearcher::convert_regex(
                                 &SearchType::PatternAdvanced(re),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: true,
                                     match_case: true,
                                 }
@@ -1029,7 +1056,7 @@ mod tests {
                             "email: user@EXAMPLE.com",
                             &FileSearcher::convert_regex(
                                 &SearchType::PatternAdvanced(re),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: true,
                                     match_case: false,
                                 }
@@ -1048,7 +1075,7 @@ mod tests {
                             "worldwide",
                             &FileSearcher::convert_regex(
                                 &SearchType::PatternAdvanced(re),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: true,
                                     match_case: false,
                                 }
@@ -1071,7 +1098,7 @@ mod tests {
                             "Timestamp: 2023-01-15T14:30:00Z",
                             &FileSearcher::convert_regex(
                                 &SearchType::PatternAdvanced(re),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: false,
                                     match_case: true,
                                 }
@@ -1090,7 +1117,7 @@ mod tests {
                             "hello world",
                             &FileSearcher::convert_regex(
                                 &SearchType::PatternAdvanced(re),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: false,
                                     match_case: true,
                                 }
@@ -1113,7 +1140,7 @@ mod tests {
                             "Tag: [WARNING] message",
                             &FileSearcher::convert_regex(
                                 &SearchType::PatternAdvanced(re),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: false,
                                     match_case: false,
                                 }
@@ -1132,7 +1159,7 @@ mod tests {
                             "Symbol: αβγδ",
                             &FileSearcher::convert_regex(
                                 &SearchType::PatternAdvanced(re),
-                                RegexOptions {
+                                &RegexOptions {
                                     whole_word: false,
                                     match_case: false,
                                 }
@@ -1152,7 +1179,7 @@ mod tests {
                     "world hello world",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("world".to_string()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1170,7 +1197,7 @@ mod tests {
                     "worldwide",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("world".to_string()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1184,7 +1211,7 @@ mod tests {
                     "_world_",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("world".to_string()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1202,7 +1229,7 @@ mod tests {
                     ",world-",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("world".to_string()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1216,7 +1243,7 @@ mod tests {
                     "world-word",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("world".to_string()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1230,7 +1257,7 @@ mod tests {
                     "Hello-world!",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("world".to_string()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1248,7 +1275,7 @@ mod tests {
                     "Hello WORLD",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("world".to_string()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: true,
                         }
@@ -1262,7 +1289,7 @@ mod tests {
                     "Hello world",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("wOrld".to_string()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: true,
                         }
@@ -1280,7 +1307,7 @@ mod tests {
                     "",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("world".to_string()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1294,7 +1321,7 @@ mod tests {
                     "hello world",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("".to_string()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1312,7 +1339,7 @@ mod tests {
                     "worldwide web",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("world".to_string()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1326,7 +1353,7 @@ mod tests {
                     "underworld",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("world".to_string()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1344,7 +1371,7 @@ mod tests {
                     "hello (world)",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("(world)".to_string()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1358,7 +1385,7 @@ mod tests {
                     "hello world.*",
                     &FileSearcher::convert_regex(
                         &SearchType::Fixed("world.*".to_string()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1377,7 +1404,7 @@ mod tests {
                     "foo axxxxb bar",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1391,7 +1418,7 @@ mod tests {
                     "fooaxxxxb bar",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1410,7 +1437,7 @@ mod tests {
                     "say hello world!",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1424,7 +1451,7 @@ mod tests {
                     "helloworld",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1443,7 +1470,7 @@ mod tests {
                     "foo aab abb",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1457,7 +1484,7 @@ mod tests {
                     "ab abaab abb",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1471,7 +1498,7 @@ mod tests {
                     "ababaababb",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1485,7 +1512,7 @@ mod tests {
                     "ab ab aab abb",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1505,7 +1532,7 @@ mod tests {
                     "foo bar baz",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1520,7 +1547,7 @@ mod tests {
                     "baz foo bar",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1535,7 +1562,7 @@ mod tests {
                     "(foo bar)",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1554,7 +1581,7 @@ mod tests {
                     "(a123b)",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1568,7 +1595,7 @@ mod tests {
                     "foo.a123b!bar",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1587,7 +1614,7 @@ mod tests {
                     "test9 abc123def 8xyz",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1601,7 +1628,7 @@ mod tests {
                     "test9abc123def8xyz",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1620,7 +1647,7 @@ mod tests {
                     "my color and colour",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1639,7 +1666,7 @@ mod tests {
                     "",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1658,7 +1685,7 @@ mod tests {
                     "search",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1677,7 +1704,7 @@ mod tests {
                     "b a c",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1691,7 +1718,7 @@ mod tests {
                     "bac",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1710,7 +1737,7 @@ mod tests {
                     "test (123) foo",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1729,7 +1756,7 @@ mod tests {
                     "calc λ123 β",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1743,7 +1770,7 @@ mod tests {
                     "calcλ123",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1762,7 +1789,7 @@ mod tests {
                     "test foo\nbar end",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re.clone()),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1776,7 +1803,7 @@ mod tests {
                     "test foo\n  bar end",
                     &FileSearcher::convert_regex(
                         &SearchType::Pattern(re),
-                        RegexOptions {
+                        &RegexOptions {
                             whole_word: true,
                             match_case: false,
                         }
@@ -1790,8 +1817,6 @@ mod tests {
 
     mod unicode_handling {
         use super::*;
-        use std::io::Write;
-        use tempfile::NamedTempFile;
 
         #[test]
         fn test_complex_unicode_replacement() {
@@ -1811,7 +1836,7 @@ mod tests {
             let pattern = SearchType::Pattern(Regex::new(r"\b\p{Script=Han}{2}\b").unwrap());
             let converted = FileSearcher::convert_regex(
                 &pattern,
-                RegexOptions {
+                &RegexOptions {
                     whole_word: true,
                     match_case: false,
                 },
@@ -1829,28 +1854,6 @@ mod tests {
                 replace::replacement_if_match(text, &search, "e"),
                 Some("cafe".to_string())
             );
-        }
-
-        #[test]
-        fn test_unicode_in_file() {
-            let mut temp_file = NamedTempFile::new().unwrap();
-            writeln!(temp_file, "Line with Greek: αβγδε").unwrap();
-            write!(temp_file, "Line with Emoji: 😀 🚀 🌍\r\n").unwrap();
-            write!(temp_file, "Line with Arabic: مرحبا بالعالم").unwrap();
-            temp_file.flush().unwrap();
-
-            let search = SearchType::Pattern(Regex::new(r"\p{Greek}+").unwrap());
-            let results = search_file(temp_file.path(), &search, "GREEK").unwrap();
-
-            assert_eq!(results.len(), 1);
-            assert_eq!(results[0].replacement, "Line with Greek: GREEK");
-
-            let search = SearchType::Pattern(Regex::new(r"🚀").unwrap());
-            let results = search_file(temp_file.path(), &search, "ROCKET").unwrap();
-
-            assert_eq!(results.len(), 1);
-            assert_eq!(results[0].replacement, "Line with Emoji: 😀 ROCKET 🌍");
-            assert_eq!(results[0].line_ending, LineEnding::CrLf);
         }
 
         #[test]
@@ -2130,7 +2133,7 @@ mod tests {
 
         #[test]
         fn test_display_error_with_error_result() {
-            let result = test_helpers::create_test_search_result(
+            let result = test_helpers::create_test_search_result_with_replacement(
                 "/path/to/file.txt",
                 42,
                 Some(ReplaceResult::Error("Test error message".to_string())),
@@ -2144,7 +2147,7 @@ mod tests {
 
         #[test]
         fn test_display_error_with_unicode_path() {
-            let result = test_helpers::create_test_search_result(
+            let result = test_helpers::create_test_search_result_with_replacement(
                 "/path/to/файл.txt",
                 123,
                 Some(ReplaceResult::Error("Unicode test".to_string())),
@@ -2159,7 +2162,7 @@ mod tests {
         #[test]
         fn test_display_error_with_complex_error_message() {
             let complex_error = "Failed to write: Permission denied (os error 13)";
-            let result = test_helpers::create_test_search_result(
+            let result = test_helpers::create_test_search_result_with_replacement(
                 "/readonly/file.txt",
                 1,
                 Some(ReplaceResult::Error(complex_error.to_string())),
@@ -2174,14 +2177,18 @@ mod tests {
         #[test]
         #[should_panic(expected = "Found error result with no error message")]
         fn test_display_error_panics_with_none_result() {
-            let result = test_helpers::create_test_search_result("/path/to/file.txt", 1, None);
+            let result = test_helpers::create_test_search_result_with_replacement(
+                "/path/to/file.txt",
+                1,
+                None,
+            );
             result.display_error();
         }
 
         #[test]
         #[should_panic(expected = "Found successful result in errors")]
         fn test_display_error_panics_with_success_result() {
-            let result = test_helpers::create_test_search_result(
+            let result = test_helpers::create_test_search_result_with_replacement(
                 "/path/to/file.txt",
                 1,
                 Some(ReplaceResult::Success),
@@ -2224,7 +2231,7 @@ mod tests {
             let fixed_search = test_helpers::create_fixed_search("test");
             let converted = FileSearcher::convert_regex(
                 &fixed_search,
-                RegexOptions {
+                &RegexOptions {
                     whole_word: true,
                     match_case: true,
                 },
@@ -2241,7 +2248,7 @@ mod tests {
             let fixed_search = test_helpers::create_fixed_search("Test");
             let converted = FileSearcher::convert_regex(
                 &fixed_search,
-                RegexOptions {
+                &RegexOptions {
                     whole_word: false,
                     match_case: false,
                 },
@@ -2255,7 +2262,7 @@ mod tests {
             let fixed_search = test_helpers::create_fixed_search("Test");
             let converted = FileSearcher::convert_regex(
                 &fixed_search,
-                RegexOptions {
+                &RegexOptions {
                     whole_word: true,
                     match_case: false,
                 },
@@ -2272,7 +2279,7 @@ mod tests {
             let fixed_search = test_helpers::create_fixed_search("test.regex*");
             let converted = FileSearcher::convert_regex(
                 &fixed_search,
-                RegexOptions {
+                &RegexOptions {
                     whole_word: false,
                     match_case: true,
                 },
@@ -2286,7 +2293,7 @@ mod tests {
             let pattern_search = test_helpers::create_pattern_search(r"\d+");
             let converted = FileSearcher::convert_regex(
                 &pattern_search,
-                RegexOptions {
+                &RegexOptions {
                     whole_word: true,
                     match_case: false,
                 },
@@ -2370,190 +2377,6 @@ mod tests {
         fn test_is_likely_binary_hidden_files() {
             assert!(is_likely_binary(Path::new(".hidden.png")));
             assert!(!is_likely_binary(Path::new(".hidden.txt")));
-        }
-    }
-
-    mod search_file_tests {
-        use super::*;
-        use std::io::Write;
-        use tempfile::NamedTempFile;
-
-        #[test]
-        fn test_search_file_simple_match() {
-            let mut temp_file = NamedTempFile::new().unwrap();
-            writeln!(temp_file, "line 1").unwrap();
-            writeln!(temp_file, "search target").unwrap();
-            writeln!(temp_file, "line 3").unwrap();
-            temp_file.flush().unwrap();
-
-            let search = test_helpers::create_fixed_search("search");
-            let results = search_file(temp_file.path(), &search, "replace").unwrap();
-
-            assert_eq!(results.len(), 1);
-            assert_eq!(results[0].line_number, 2);
-            assert_eq!(results[0].line, "search target");
-            assert_eq!(results[0].replacement, "replace target");
-            assert!(results[0].included);
-            assert!(results[0].replace_result.is_none());
-        }
-
-        #[test]
-        fn test_search_file_multiple_matches() {
-            let mut temp_file = NamedTempFile::new().unwrap();
-            writeln!(temp_file, "test line 1").unwrap();
-            writeln!(temp_file, "test line 2").unwrap();
-            writeln!(temp_file, "no match here").unwrap();
-            writeln!(temp_file, "test line 4").unwrap();
-            temp_file.flush().unwrap();
-
-            let search = test_helpers::create_fixed_search("test");
-            let results = search_file(temp_file.path(), &search, "replaced").unwrap();
-
-            assert_eq!(results.len(), 3);
-            assert_eq!(results[0].line_number, 1);
-            assert_eq!(results[0].replacement, "replaced line 1");
-            assert_eq!(results[1].line_number, 2);
-            assert_eq!(results[1].replacement, "replaced line 2");
-            assert_eq!(results[2].line_number, 4);
-            assert_eq!(results[2].replacement, "replaced line 4");
-        }
-
-        #[test]
-        fn test_search_file_no_matches() {
-            let mut temp_file = NamedTempFile::new().unwrap();
-            writeln!(temp_file, "line 1").unwrap();
-            writeln!(temp_file, "line 2").unwrap();
-            writeln!(temp_file, "line 3").unwrap();
-            temp_file.flush().unwrap();
-
-            let search = SearchType::Fixed("nonexistent".to_string());
-            let results = search_file(temp_file.path(), &search, "replace").unwrap();
-
-            assert_eq!(results.len(), 0);
-        }
-
-        #[test]
-        fn test_search_file_regex_pattern() {
-            let mut temp_file = NamedTempFile::new().unwrap();
-            writeln!(temp_file, "number: 123").unwrap();
-            writeln!(temp_file, "text without numbers").unwrap();
-            writeln!(temp_file, "another number: 456").unwrap();
-            temp_file.flush().unwrap();
-
-            let search = SearchType::Pattern(Regex::new(r"\d+").unwrap());
-            let results = search_file(temp_file.path(), &search, "XXX").unwrap();
-
-            assert_eq!(results.len(), 2);
-            assert_eq!(results[0].replacement, "number: XXX");
-            assert_eq!(results[1].replacement, "another number: XXX");
-        }
-
-        #[test]
-        fn test_search_file_advanced_regex_pattern() {
-            let mut temp_file = NamedTempFile::new().unwrap();
-            writeln!(temp_file, "123abc456").unwrap();
-            writeln!(temp_file, "abc").unwrap();
-            writeln!(temp_file, "789xyz123").unwrap();
-            writeln!(temp_file, "no match").unwrap();
-            temp_file.flush().unwrap();
-
-            // Positive lookbehind and lookahead
-            let search =
-                SearchType::PatternAdvanced(FancyRegex::new(r"(?<=\d{3})abc(?=\d{3})").unwrap());
-            let results = search_file(temp_file.path(), &search, "REPLACED").unwrap();
-
-            assert_eq!(results.len(), 1);
-            assert_eq!(results[0].replacement, "123REPLACED456");
-            assert_eq!(results[0].line_number, 1);
-        }
-
-        #[test]
-        fn test_search_file_empty_search() {
-            let mut temp_file = NamedTempFile::new().unwrap();
-            writeln!(temp_file, "some content").unwrap();
-            temp_file.flush().unwrap();
-
-            let search = SearchType::Fixed("".to_string());
-            let results = search_file(temp_file.path(), &search, "replace").unwrap();
-
-            assert_eq!(results.len(), 0);
-        }
-
-        #[test]
-        fn test_search_file_preserves_line_endings() {
-            let mut temp_file = NamedTempFile::new().unwrap();
-            write!(temp_file, "line1\nline2\r\nline3").unwrap();
-            temp_file.flush().unwrap();
-
-            let search = SearchType::Fixed("line".to_string());
-            let results = search_file(temp_file.path(), &search, "X").unwrap();
-
-            assert_eq!(results.len(), 3);
-            assert_eq!(results[0].line_ending, LineEnding::Lf);
-            assert_eq!(results[1].line_ending, LineEnding::CrLf);
-            assert_eq!(results[2].line_ending, LineEnding::None);
-        }
-
-        #[test]
-        fn test_search_file_nonexistent() {
-            let nonexistent_path = PathBuf::from("/this/file/does/not/exist.txt");
-            let search = test_helpers::create_fixed_search("test");
-            let results = search_file(&nonexistent_path, &search, "replace");
-
-            assert!(results.is_err());
-        }
-
-        #[test]
-        fn test_search_file_unicode_content() {
-            let mut temp_file = NamedTempFile::new().unwrap();
-            writeln!(temp_file, "Hello 世界!").unwrap();
-            writeln!(temp_file, "Здравствуй мир!").unwrap();
-            writeln!(temp_file, "🚀 Rocket").unwrap();
-            temp_file.flush().unwrap();
-
-            let search = SearchType::Fixed("世界".to_string());
-            let results = search_file(temp_file.path(), &search, "World").unwrap();
-
-            assert_eq!(results.len(), 1);
-            assert_eq!(results[0].replacement, "Hello World!");
-        }
-
-        #[test]
-        fn test_search_file_with_binary_content() {
-            let mut temp_file = NamedTempFile::new().unwrap();
-            // Write some binary data (null bytes and other control characters)
-            let binary_data = [0x00, 0x01, 0x02, 0xFF, 0xFE];
-            temp_file.write_all(&binary_data).unwrap();
-            temp_file.flush().unwrap();
-
-            let search = test_helpers::create_fixed_search("test");
-            let results = search_file(temp_file.path(), &search, "replace");
-
-            assert!(results.is_ok());
-            assert_eq!(results.unwrap().len(), 0);
-        }
-
-        #[test]
-        fn test_search_file_large_content() {
-            let mut temp_file = NamedTempFile::new().unwrap();
-
-            // Write a large file with search targets scattered throughout
-            for i in 0..1000 {
-                if i % 100 == 0 {
-                    writeln!(temp_file, "target line {i}").unwrap();
-                } else {
-                    writeln!(temp_file, "normal line {i}").unwrap();
-                }
-            }
-            temp_file.flush().unwrap();
-
-            let search = SearchType::Fixed("target".to_string());
-            let results = search_file(temp_file.path(), &search, "found").unwrap();
-
-            assert_eq!(results.len(), 10); // Lines 0, 100, 200, ..., 900
-            assert_eq!(results[0].line_number, 1); // 1-indexed
-            assert_eq!(results[1].line_number, 101);
-            assert_eq!(results[9].line_number, 901);
         }
     }
 }

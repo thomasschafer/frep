@@ -67,6 +67,10 @@ struct Args {
 }
 
 fn validate_args(args: &Args) -> anyhow::Result<()> {
+    if args.search_text.is_empty() {
+        bail!("Search text must not be empty");
+    }
+
     if args.replace_text.is_none() && !args.delete {
         bail!(
             "You must either specify either replacement text (`frep before after`) or use --delete to delete matches `(frep before --delete)`"

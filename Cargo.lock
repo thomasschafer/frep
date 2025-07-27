@@ -445,26 +445,9 @@ dependencies = [
  "anyhow",
  "clap",
  "etcetera",
- "frep-core 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "frep-core 0.1.2",
  "simple-log",
  "tempfile",
-]
-
-[[package]]
-name = "frep-core"
-version = "0.1.2"
-dependencies = [
- "anyhow",
- "content_inspector",
- "crossterm",
- "fancy-regex 0.15.0",
- "ignore",
- "log",
- "regex",
- "serial_test",
- "simple-log",
- "tempfile",
- "tokio",
 ]
 
 [[package]]
@@ -482,6 +465,23 @@ dependencies = [
  "regex",
  "simple-log",
  "tempfile",
+]
+
+[[package]]
+name = "frep-core"
+version = "0.1.3"
+dependencies = [
+ "anyhow",
+ "content_inspector",
+ "crossterm",
+ "fancy-regex 0.15.0",
+ "ignore",
+ "log",
+ "regex",
+ "serial_test",
+ "simple-log",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]

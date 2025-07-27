@@ -6,7 +6,7 @@ use std::{
 };
 use tempfile::NamedTempFile;
 
-use crate::search::{SearchResult, SearchType};
+use crate::search::{SearchResult, SearchResultWithReplacement, SearchType};
 use crate::{line_reader::BufReadExt, search};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -17,16 +17,16 @@ pub enum ReplaceResult {
 
 /// NOTE: this should only be called with search results from the same file
 // TODO: enforce the above via types
-pub fn replace_in_file(results: &mut [SearchResult]) -> anyhow::Result<()> {
+pub fn replace_in_file(results: &mut [SearchResultWithReplacement]) -> anyhow::Result<()> {
     let file_path = match results {
-        [r, ..] => r.path.clone(),
+        [r, ..] => r.search_result.path.clone(),
         [] => return Ok(()),
     };
-    debug_assert!(results.iter().all(|r| r.path == file_path));
+    debug_assert!(results.iter().all(|r| r.search_result.path == file_path));
 
     let mut line_map: HashMap<_, _> = results
         .iter_mut()
-        .map(|res| (res.line_number, res))
+        .map(|res| (res.search_result.line_number, res))
         .collect();
 
     let parent_dir = file_path.parent().unwrap_or(Path::new("."));
@@ -44,7 +44,7 @@ pub fn replace_in_file(results: &mut [SearchResult]) -> anyhow::Result<()> {
             line_number += 1; // Ensure line-number is 1-indexed
             let (mut line, line_ending) = line_result?;
             if let Some(res) = line_map.get_mut(&line_number) {
-                if line == res.line.as_bytes() {
+                if line == res.search_result.line.as_bytes() {
                     line = res.replacement.as_bytes().to_vec();
                     res.replace_result = Some(ReplaceResult::Success);
                 } else {
@@ -111,10 +111,31 @@ pub fn replace_all_in_file(
     replace_chunked(file_path, search, replace)
 }
 
+pub fn add_replacement(
+    search_result: SearchResult,
+    search: &SearchType,
+    replace: &str,
+) -> Option<SearchResultWithReplacement> {
+    let replacement = replacement_if_match(&search_result.line, search, replace)?;
+    Some(SearchResultWithReplacement {
+        search_result,
+        replacement,
+        replace_result: None,
+    })
+}
+
 fn replace_chunked(file_path: &Path, search: &SearchType, replace: &str) -> anyhow::Result<bool> {
-    let mut results = search::search_file(file_path, search, replace)?;
-    if !results.is_empty() {
-        replace_in_file(&mut results)?;
+    let search_results = search::search_file(file_path, search)?;
+    if !search_results.is_empty() {
+        let mut replacement_results = search_results
+            .into_iter()
+            .map(|r| {
+                add_replacement(r, search, replace).unwrap_or_else(|| {
+                    panic!("Called add_replacement with non-matching search result")
+                })
+            })
+            .collect::<Vec<_>>();
+        replace_in_file(&mut replacement_results)?;
         return Ok(true);
     }
 
@@ -151,44 +172,34 @@ pub fn replacement_if_match(line: &str, search: &SearchType, replace: &str) -> O
         return None;
     }
 
-    match search {
-        SearchType::Fixed(fixed_str) => {
-            if line.contains(fixed_str) {
-                Some(line.replace(fixed_str, replace))
-            } else {
-                None
-            }
-        }
-        SearchType::Pattern(pattern) => {
-            if pattern.is_match(line) {
-                Some(pattern.replace_all(line, replace).to_string())
-            } else {
-                None
-            }
-        }
-        SearchType::PatternAdvanced(pattern) => match pattern.is_match(line) {
-            Ok(true) => Some(pattern.replace_all(line, replace).to_string()),
-            _ => None,
-        },
+    if search::contains_search(line, search) {
+        let replacement = match search {
+            SearchType::Fixed(fixed_str) => line.replace(fixed_str, replace),
+            SearchType::Pattern(pattern) => pattern.replace_all(line, replace).to_string(),
+            SearchType::PatternAdvanced(pattern) => pattern.replace_all(line, replace).to_string(),
+        };
+        Some(replacement)
+    } else {
+        None
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReplaceStats {
     pub num_successes: usize,
-    pub errors: Vec<SearchResult>,
+    pub errors: Vec<SearchResultWithReplacement>,
 }
 
 pub fn calculate_statistics<I>(results: I) -> ReplaceStats
 where
-    I: IntoIterator<Item = SearchResult>,
+    I: IntoIterator<Item = SearchResultWithReplacement>,
 {
     let mut num_successes = 0;
     let mut errors = vec![];
 
     results.into_iter().for_each(|res| {
         assert!(
-            res.included,
+            res.search_result.included,
             "Expected only included results, found {res:?}"
         );
         match &res.replace_result {
@@ -218,27 +229,37 @@ where
 mod tests {
     use super::*;
     use crate::line_reader::LineEnding;
-    use crate::search::{SearchResult, SearchType};
+    use crate::search::{SearchResult, SearchType, search_file};
     use regex::Regex;
     use std::path::PathBuf;
     use tempfile::TempDir;
 
+    mod test_helpers {
+        use crate::search::SearchType;
+
+        pub fn create_fixed_search(term: &str) -> SearchType {
+            SearchType::Fixed(term.to_string())
+        }
+    }
+
     // Helper functions
-    fn create_search_result(
+    fn create_search_result_with_replacement(
         path: &str,
         line_number: usize,
         line: &str,
         replacement: &str,
         included: bool,
         replace_result: Option<ReplaceResult>,
-    ) -> SearchResult {
-        SearchResult {
-            path: PathBuf::from(path),
-            line_number,
-            line: line.to_string(),
-            line_ending: LineEnding::Lf,
+    ) -> SearchResultWithReplacement {
+        SearchResultWithReplacement {
+            search_result: SearchResult {
+                path: PathBuf::from(path),
+                line_number,
+                line: line.to_string(),
+                line_ending: LineEnding::Lf,
+                included,
+            },
             replacement: replacement.to_string(),
-            included,
             replace_result,
         }
     }
@@ -274,7 +295,7 @@ mod tests {
 
         // Create search results
         let mut results = vec![
-            create_search_result(
+            create_search_result_with_replacement(
                 file_path.to_str().unwrap(),
                 2,
                 "old text",
@@ -282,7 +303,7 @@ mod tests {
                 true,
                 None,
             ),
-            create_search_result(
+            create_search_result_with_replacement(
                 file_path.to_str().unwrap(),
                 4,
                 "old text",
@@ -316,7 +337,7 @@ mod tests {
 
         // Create search results
         let mut results = vec![
-            create_search_result(
+            create_search_result_with_replacement(
                 file_path.to_str().unwrap(),
                 2,
                 "old text",
@@ -324,7 +345,7 @@ mod tests {
                 true,
                 None,
             ),
-            create_search_result(
+            create_search_result_with_replacement(
                 file_path.to_str().unwrap(),
                 4,
                 "old text",
@@ -359,7 +380,7 @@ mod tests {
 
         // Create search results
         let mut results = vec![
-            create_search_result(
+            create_search_result_with_replacement(
                 file_path.to_str().unwrap(),
                 2,
                 "old text",
@@ -367,7 +388,7 @@ mod tests {
                 true,
                 None,
             ),
-            create_search_result(
+            create_search_result_with_replacement(
                 file_path.to_str().unwrap(),
                 4,
                 "old text",
@@ -405,7 +426,7 @@ mod tests {
 
         // Create search results
         let mut results = vec![
-            create_search_result(
+            create_search_result_with_replacement(
                 file_path.to_str().unwrap(),
                 4,
                 "old text",
@@ -413,7 +434,7 @@ mod tests {
                 true,
                 None,
             ),
-            create_search_result(
+            create_search_result_with_replacement(
                 file_path.to_str().unwrap(),
                 7,
                 "line 5",
@@ -446,7 +467,7 @@ mod tests {
         let file_path = create_test_file(&temp_dir, "test.txt", "line 1\nactual text\nline 3\n");
 
         // Create search result with mismatching line
-        let mut results = vec![create_search_result(
+        let mut results = vec![create_search_result_with_replacement(
             file_path.to_str().unwrap(),
             2,
             "expected text",
@@ -474,7 +495,7 @@ mod tests {
 
     #[test]
     fn test_replace_in_file_nonexistent_file() {
-        let mut results = vec![create_search_result(
+        let mut results = vec![create_search_result_with_replacement(
             "/nonexistent/path/file.txt",
             1,
             "old",
@@ -489,15 +510,9 @@ mod tests {
 
     #[test]
     fn test_replace_directory_errors() {
-        let mut results = vec![SearchResult {
-            path: PathBuf::from("/"),
-            line_number: 0,
-            line: "foo".into(),
-            line_ending: LineEnding::Lf,
-            replacement: "bar".into(),
-            included: true,
-            replace_result: None,
-        }];
+        let mut results = vec![create_search_result_with_replacement(
+            "/", 0, "foo", "bar", true, None,
+        )];
 
         let result = replace_in_file(&mut results);
         assert!(result.is_err());
@@ -674,5 +689,270 @@ mod tests {
             &file_path,
             "This is a test file.\nIt has some content to modify.\nThe word modify should be modifyd.",
         );
+    }
+
+    #[test]
+    fn test_unicode_in_file() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(temp_file, "Line with Greek: αβγδε").unwrap();
+        write!(temp_file, "Line with Emoji: 😀 🚀 🌍\r\n").unwrap();
+        write!(temp_file, "Line with Arabic: مرحبا بالعالم").unwrap();
+        temp_file.flush().unwrap();
+
+        let search = SearchType::Pattern(Regex::new(r"\p{Greek}+").unwrap());
+        let replacement = "GREEK";
+        let results = search_file(temp_file.path(), &search)
+            .unwrap()
+            .into_iter()
+            .filter_map(|r| add_replacement(r, &search, replacement))
+            .collect::<Vec<_>>();
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].replacement, "Line with Greek: GREEK");
+
+        let search = SearchType::Pattern(Regex::new(r"🚀").unwrap());
+        let replacement = "ROCKET";
+        let results = search_file(temp_file.path(), &search)
+            .unwrap()
+            .into_iter()
+            .filter_map(|r| add_replacement(r, &search, replacement))
+            .collect::<Vec<_>>();
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].replacement, "Line with Emoji: 😀 ROCKET 🌍");
+        assert_eq!(results[0].search_result.line_ending, LineEnding::CrLf);
+    }
+
+    mod search_file_tests {
+        use super::*;
+        use fancy_regex::Regex as FancyRegex;
+        use regex::Regex;
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        #[test]
+        fn test_search_file_simple_match() {
+            let mut temp_file = NamedTempFile::new().unwrap();
+            writeln!(temp_file, "line 1").unwrap();
+            writeln!(temp_file, "search target").unwrap();
+            writeln!(temp_file, "line 3").unwrap();
+            temp_file.flush().unwrap();
+
+            let search = test_helpers::create_fixed_search("search");
+            let replacement = "replace";
+            let results = search_file(temp_file.path(), &search)
+                .unwrap()
+                .into_iter()
+                .filter_map(|r| add_replacement(r, &search, replacement))
+                .collect::<Vec<_>>();
+
+            assert_eq!(results.len(), 1);
+            assert_eq!(results[0].search_result.line_number, 2);
+            assert_eq!(results[0].search_result.line, "search target");
+            assert_eq!(results[0].replacement, "replace target");
+            assert!(results[0].search_result.included);
+        }
+
+        #[test]
+        fn test_search_file_multiple_matches() {
+            let mut temp_file = NamedTempFile::new().unwrap();
+            writeln!(temp_file, "test line 1").unwrap();
+            writeln!(temp_file, "test line 2").unwrap();
+            writeln!(temp_file, "no match here").unwrap();
+            writeln!(temp_file, "test line 4").unwrap();
+            temp_file.flush().unwrap();
+
+            let search = test_helpers::create_fixed_search("test");
+            let replacement = "replaced";
+            let results = search_file(temp_file.path(), &search)
+                .unwrap()
+                .into_iter()
+                .filter_map(|r| add_replacement(r, &search, replacement))
+                .collect::<Vec<_>>();
+
+            assert_eq!(results.len(), 3);
+            assert_eq!(results[0].search_result.line_number, 1);
+            assert_eq!(results[0].replacement, "replaced line 1");
+            assert_eq!(results[1].search_result.line_number, 2);
+            assert_eq!(results[1].replacement, "replaced line 2");
+            assert_eq!(results[2].search_result.line_number, 4);
+            assert_eq!(results[2].replacement, "replaced line 4");
+        }
+
+        #[test]
+        fn test_search_file_no_matches() {
+            let mut temp_file = NamedTempFile::new().unwrap();
+            writeln!(temp_file, "line 1").unwrap();
+            writeln!(temp_file, "line 2").unwrap();
+            writeln!(temp_file, "line 3").unwrap();
+            temp_file.flush().unwrap();
+
+            let search = SearchType::Fixed("nonexistent".to_string());
+            let replacement = "replace";
+            let results = search_file(temp_file.path(), &search)
+                .unwrap()
+                .into_iter()
+                .filter_map(|r| add_replacement(r, &search, replacement))
+                .collect::<Vec<_>>();
+
+            assert_eq!(results.len(), 0);
+        }
+
+        #[test]
+        fn test_search_file_regex_pattern() {
+            let mut temp_file = NamedTempFile::new().unwrap();
+            writeln!(temp_file, "number: 123").unwrap();
+            writeln!(temp_file, "text without numbers").unwrap();
+            writeln!(temp_file, "another number: 456").unwrap();
+            temp_file.flush().unwrap();
+
+            let search = SearchType::Pattern(Regex::new(r"\d+").unwrap());
+            let replacement = "XXX";
+            let results = search_file(temp_file.path(), &search)
+                .unwrap()
+                .into_iter()
+                .filter_map(|r| add_replacement(r, &search, replacement))
+                .collect::<Vec<_>>();
+
+            assert_eq!(results.len(), 2);
+            assert_eq!(results[0].replacement, "number: XXX");
+            assert_eq!(results[1].replacement, "another number: XXX");
+        }
+
+        #[test]
+        fn test_search_file_advanced_regex_pattern() {
+            let mut temp_file = NamedTempFile::new().unwrap();
+            writeln!(temp_file, "123abc456").unwrap();
+            writeln!(temp_file, "abc").unwrap();
+            writeln!(temp_file, "789xyz123").unwrap();
+            writeln!(temp_file, "no match").unwrap();
+            temp_file.flush().unwrap();
+
+            // Positive lookbehind and lookahead
+            let search =
+                SearchType::PatternAdvanced(FancyRegex::new(r"(?<=\d{3})abc(?=\d{3})").unwrap());
+            let replacement = "REPLACED";
+            let results = search_file(temp_file.path(), &search)
+                .unwrap()
+                .into_iter()
+                .filter_map(|r| add_replacement(r, &search, replacement))
+                .collect::<Vec<_>>();
+
+            assert_eq!(results.len(), 1);
+            assert_eq!(results[0].replacement, "123REPLACED456");
+            assert_eq!(results[0].search_result.line_number, 1);
+        }
+
+        #[test]
+        fn test_search_file_empty_search() {
+            let mut temp_file = NamedTempFile::new().unwrap();
+            writeln!(temp_file, "some content").unwrap();
+            temp_file.flush().unwrap();
+
+            let search = SearchType::Fixed("".to_string());
+            let replacement = "replace";
+            let results = search_file(temp_file.path(), &search)
+                .unwrap()
+                .into_iter()
+                .filter_map(|r| add_replacement(r, &search, replacement))
+                .collect::<Vec<_>>();
+
+            assert_eq!(results.len(), 0);
+        }
+
+        #[test]
+        fn test_search_file_preserves_line_endings() {
+            let mut temp_file = NamedTempFile::new().unwrap();
+            write!(temp_file, "line1\nline2\r\nline3").unwrap();
+            temp_file.flush().unwrap();
+
+            let search = SearchType::Fixed("line".to_string());
+            let replacement = "X";
+            let results = search_file(temp_file.path(), &search)
+                .unwrap()
+                .into_iter()
+                .filter_map(|r| add_replacement(r, &search, replacement))
+                .collect::<Vec<_>>();
+
+            assert_eq!(results.len(), 3);
+            assert_eq!(results[0].search_result.line_ending, LineEnding::Lf);
+            assert_eq!(results[1].search_result.line_ending, LineEnding::CrLf);
+            assert_eq!(results[2].search_result.line_ending, LineEnding::None);
+        }
+
+        #[test]
+        fn test_search_file_nonexistent() {
+            let nonexistent_path = PathBuf::from("/this/file/does/not/exist.txt");
+            let search = test_helpers::create_fixed_search("test");
+            let results = search_file(&nonexistent_path, &search);
+            assert!(results.is_err());
+        }
+
+        #[test]
+        fn test_search_file_unicode_content() {
+            let mut temp_file = NamedTempFile::new().unwrap();
+            writeln!(temp_file, "Hello 世界!").unwrap();
+            writeln!(temp_file, "Здравствуй мир!").unwrap();
+            writeln!(temp_file, "🚀 Rocket").unwrap();
+            temp_file.flush().unwrap();
+
+            let search = SearchType::Fixed("世界".to_string());
+            let replacement = "World";
+            let results = search_file(temp_file.path(), &search)
+                .unwrap()
+                .into_iter()
+                .filter_map(|r| add_replacement(r, &search, replacement))
+                .collect::<Vec<_>>();
+
+            assert_eq!(results.len(), 1);
+            assert_eq!(results[0].replacement, "Hello World!");
+        }
+
+        #[test]
+        fn test_search_file_with_binary_content() {
+            let mut temp_file = NamedTempFile::new().unwrap();
+            // Write some binary data (null bytes and other control characters)
+            let binary_data = [0x00, 0x01, 0x02, 0xFF, 0xFE];
+            temp_file.write_all(&binary_data).unwrap();
+            temp_file.flush().unwrap();
+
+            let search = test_helpers::create_fixed_search("test");
+            let replacement = "replace";
+            let results = search_file(temp_file.path(), &search)
+                .unwrap()
+                .into_iter()
+                .filter_map(|r| add_replacement(r, &search, replacement))
+                .collect::<Vec<_>>();
+
+            assert_eq!(results.len(), 0);
+        }
+
+        #[test]
+        fn test_search_file_large_content() {
+            let mut temp_file = NamedTempFile::new().unwrap();
+
+            // Write a large file with search targets scattered throughout
+            for i in 0..1000 {
+                if i % 100 == 0 {
+                    writeln!(temp_file, "target line {i}").unwrap();
+                } else {
+                    writeln!(temp_file, "normal line {i}").unwrap();
+                }
+            }
+            temp_file.flush().unwrap();
+
+            let search = SearchType::Fixed("target".to_string());
+            let replacement = "found";
+            let results = search_file(temp_file.path(), &search)
+                .unwrap()
+                .into_iter()
+                .filter_map(|r| add_replacement(r, &search, replacement))
+                .collect::<Vec<_>>();
+
+            assert_eq!(results.len(), 10); // Lines 0, 100, 200, ..., 900
+            assert_eq!(results[0].search_result.line_number, 1); // 1-indexed
+            assert_eq!(results[1].search_result.line_number, 101);
+            assert_eq!(results[9].search_result.line_number, 901);
+        }
     }
 }

@@ -704,7 +704,7 @@ mod tests {
         let results = search_file(temp_file.path(), &search)
             .unwrap()
             .into_iter()
-            .map(|r| add_replacement(r, &search, replacement))
+            .filter_map(|r| add_replacement(r, &search, replacement))
             .collect::<Vec<_>>();
 
         assert_eq!(results.len(), 1);
@@ -715,7 +715,7 @@ mod tests {
         let results = search_file(temp_file.path(), &search)
             .unwrap()
             .into_iter()
-            .map(|r| add_replacement(r, &search, replacement))
+            .filter_map(|r| add_replacement(r, &search, replacement))
             .collect::<Vec<_>>();
 
         assert_eq!(results.len(), 1);
@@ -743,7 +743,7 @@ mod tests {
             let results = search_file(temp_file.path(), &search)
                 .unwrap()
                 .into_iter()
-                .map(|r| add_replacement(r, &search, replacement))
+                .filter_map(|r| add_replacement(r, &search, replacement))
                 .collect::<Vec<_>>();
 
             assert_eq!(results.len(), 1);
@@ -767,7 +767,7 @@ mod tests {
             let results = search_file(temp_file.path(), &search)
                 .unwrap()
                 .into_iter()
-                .map(|r| add_replacement(r, &search, replacement))
+                .filter_map(|r| add_replacement(r, &search, replacement))
                 .collect::<Vec<_>>();
 
             assert_eq!(results.len(), 3);
@@ -792,7 +792,7 @@ mod tests {
             let results = search_file(temp_file.path(), &search)
                 .unwrap()
                 .into_iter()
-                .map(|r| add_replacement(r, &search, replacement))
+                .filter_map(|r| add_replacement(r, &search, replacement))
                 .collect::<Vec<_>>();
 
             assert_eq!(results.len(), 0);
@@ -811,7 +811,7 @@ mod tests {
             let results = search_file(temp_file.path(), &search)
                 .unwrap()
                 .into_iter()
-                .map(|r| add_replacement(r, &search, replacement))
+                .filter_map(|r| add_replacement(r, &search, replacement))
                 .collect::<Vec<_>>();
 
             assert_eq!(results.len(), 2);
@@ -835,7 +835,7 @@ mod tests {
             let results = search_file(temp_file.path(), &search)
                 .unwrap()
                 .into_iter()
-                .map(|r| add_replacement(r, &search, replacement))
+                .filter_map(|r| add_replacement(r, &search, replacement))
                 .collect::<Vec<_>>();
 
             assert_eq!(results.len(), 1);
@@ -854,7 +854,7 @@ mod tests {
             let results = search_file(temp_file.path(), &search)
                 .unwrap()
                 .into_iter()
-                .map(|r| add_replacement(r, &search, replacement))
+                .filter_map(|r| add_replacement(r, &search, replacement))
                 .collect::<Vec<_>>();
 
             assert_eq!(results.len(), 0);
@@ -871,7 +871,7 @@ mod tests {
             let results = search_file(temp_file.path(), &search)
                 .unwrap()
                 .into_iter()
-                .map(|r| add_replacement(r, &search, replacement))
+                .filter_map(|r| add_replacement(r, &search, replacement))
                 .collect::<Vec<_>>();
 
             assert_eq!(results.len(), 3);
@@ -901,7 +901,7 @@ mod tests {
             let results = search_file(temp_file.path(), &search)
                 .unwrap()
                 .into_iter()
-                .map(|r| add_replacement(r, &search, replacement))
+                .filter_map(|r| add_replacement(r, &search, replacement))
                 .collect::<Vec<_>>();
 
             assert_eq!(results.len(), 1);
@@ -921,7 +921,7 @@ mod tests {
             let results = search_file(temp_file.path(), &search)
                 .unwrap()
                 .into_iter()
-                .map(|r| add_replacement(r, &search, replacement))
+                .filter_map(|r| add_replacement(r, &search, replacement))
                 .collect::<Vec<_>>();
 
             assert_eq!(results.len(), 0);
@@ -946,7 +946,7 @@ mod tests {
             let results = search_file(temp_file.path(), &search)
                 .unwrap()
                 .into_iter()
-                .map(|r| add_replacement(r, &search, replacement))
+                .filter_map(|r| add_replacement(r, &search, replacement))
                 .collect::<Vec<_>>();
 
             assert_eq!(results.len(), 10); // Lines 0, 100, 200, ..., 900

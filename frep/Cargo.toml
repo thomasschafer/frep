@@ -14,7 +14,7 @@ categories = ["command-line-utilities"]
 [dependencies]
 frep-core = { version = "0.1.3" }
 anyhow = "1.0.88"
-clap = { version = "4.5.41", features = ["derive"] }
+clap = { version = "4.5.42", features = ["derive"] }
 etcetera = "0.10.0"
 simple-log = "2.3.0"
 

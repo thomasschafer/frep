@@ -2,7 +2,7 @@ use anyhow::bail;
 use clap::Parser;
 use frep_core::validation::SearchConfiguration;
 use simple_log::LevelFilter;
-use std::{io::IsTerminal, path::PathBuf, str::FromStr};
+use std::{io::{self, IsTerminal, Read}, path::PathBuf, str::FromStr};
 
 use frep_core::run;
 
@@ -66,7 +66,22 @@ struct Args {
     delete: bool,
 }
 
-fn validate_args(args: &Args) -> anyhow::Result<()> {
+fn detect_and_read_stdin() -> anyhow::Result<Option<String>> {
+    if io::stdin().is_terminal() {
+        return Ok(None);
+    }
+
+    let mut stdin_content = String::new();
+    io::stdin().read_to_string(&mut stdin_content)?;
+
+    if stdin_content.trim().is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(stdin_content))
+    }
+}
+
+fn validate_args(args: &Args, stdin_content: &Option<String>) -> anyhow::Result<()> {
     if args.search_text.is_empty() {
         bail!("Search text must not be empty");
     }
@@ -81,6 +96,19 @@ fn validate_args(args: &Args) -> anyhow::Result<()> {
             "You cannot specify both replacement text and the --delete flag. Use either replacement text (`frep before after`) or the --delete flag (`frep before --delete`)"
         );
     }
+
+    if stdin_content.is_some() {
+        if args.hidden {
+            bail!("Cannot use --hidden flag with stdin input");
+        }
+        if args.include_files.is_some() {
+            bail!("Cannot use --include-files with stdin input");
+        }
+        if args.exclude_files.is_some() {
+            bail!("Cannot use --exclude-files with stdin input");
+        }
+    }
+    
     Ok(())
 }
 
@@ -116,15 +144,17 @@ impl<'a> From<&'a Args> for SearchConfiguration<'a> {
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+    let stdin_content = detect_and_read_stdin()?;
 
-    if !std::io::stdin().is_terminal() {
-        bail!("frep does not support stdin input. Usage: frep <search> <replace>");
-    }
-
-    validate_args(&args)?;
+    validate_args(&args, &stdin_content)?;
     logging::setup_logging(args.log_level)?;
 
-    let results = run::find_and_replace((&args).into())?;
+    let results = if let Some(stdin_content) = stdin_content {
+        run::find_and_replace_text(&stdin_content, (&args).into())?
+    } else {
+        run::find_and_replace((&args).into())?
+    };
+    
     println!("{results}");
     Ok(())
 }
@@ -211,7 +241,7 @@ mod tests {
             ..test_args()
         };
 
-        let result = validate_args(&args);
+        let result = validate_args(&args, &None);
         assert!(result.is_ok());
     }
 
@@ -223,7 +253,7 @@ mod tests {
             ..test_args()
         };
 
-        let result = validate_args(&args);
+        let result = validate_args(&args, &None);
         assert!(result.is_ok());
     }
 
@@ -235,7 +265,7 @@ mod tests {
             ..test_args()
         };
 
-        let result = validate_args(&args);
+        let result = validate_args(&args, &None);
         assert!(result.is_err());
 
         let error_message = result.unwrap_err().to_string();
@@ -255,7 +285,7 @@ mod tests {
             ..test_args()
         };
 
-        let result = validate_args(&args);
+        let result = validate_args(&args, &None);
         assert!(result.is_err());
 
         let error_message = result.unwrap_err().to_string();

@@ -1007,25 +1007,6 @@ mod tests {
                 }
 
                 #[test]
-                fn test_lookahead() {
-                    let re = FancyRegex::new(r"\w+(?=\.\w+$)").unwrap();
-                    assert_eq!(
-                        replace::replacement_if_match(
-                            "file: document.pdf",
-                            &FileSearcher::convert_regex(
-                                &SearchType::PatternAdvanced(re),
-                                &RegexOptions {
-                                    whole_word: true,
-                                    match_case: true,
-                                }
-                            ),
-                            "report"
-                        ),
-                        Some("file: report.pdf".to_string())
-                    );
-                }
-
-                #[test]
                 fn test_case_sensitivity() {
                     let re = FancyRegex::new(r"world").unwrap();
                     assert_eq!(
@@ -1125,6 +1106,25 @@ mod tests {
                             "earth"
                         ),
                         None
+                    );
+                }
+
+                #[test]
+                fn test_lookahead() {
+                    let re = FancyRegex::new(r"\w+(?=\.\w+$)").unwrap();
+                    assert_eq!(
+                        replace::replacement_if_match(
+                            "file: document.pdf",
+                            &FileSearcher::convert_regex(
+                                &SearchType::PatternAdvanced(re),
+                                &RegexOptions {
+                                    whole_word: false,
+                                    match_case: true,
+                                }
+                            ),
+                            "report"
+                        ),
+                        Some("file: report.pdf".to_string())
                     );
                 }
             }
@@ -2243,19 +2243,6 @@ mod tests {
             );
         }
 
-        #[test]
-        fn test_convert_regex_case_insensitive() {
-            let fixed_search = test_helpers::create_fixed_search("Test");
-            let converted = FileSearcher::convert_regex(
-                &fixed_search,
-                &RegexOptions {
-                    whole_word: false,
-                    match_case: false,
-                },
-            );
-
-            test_helpers::assert_pattern_contains(&converted, &["(?i)", "Test"]);
-        }
 
         #[test]
         fn test_convert_regex_whole_word_and_case_insensitive() {

@@ -2,7 +2,11 @@ use anyhow::bail;
 use clap::Parser;
 use frep_core::validation::SearchConfiguration;
 use simple_log::LevelFilter;
-use std::{io::{self, IsTerminal, Read}, path::PathBuf, str::FromStr};
+use std::{
+    io::{self, IsTerminal, Read},
+    path::PathBuf,
+    str::FromStr,
+};
 
 use frep_core::run;
 
@@ -81,7 +85,7 @@ fn detect_and_read_stdin() -> anyhow::Result<Option<String>> {
     }
 }
 
-fn validate_args(args: &Args, stdin_content: &Option<String>) -> anyhow::Result<()> {
+fn validate_args(args: &Args, stdin_content: Option<&String>) -> anyhow::Result<()> {
     if args.search_text.is_empty() {
         bail!("Search text must not be empty");
     }
@@ -108,7 +112,7 @@ fn validate_args(args: &Args, stdin_content: &Option<String>) -> anyhow::Result<
             bail!("Cannot use --exclude-files with stdin input");
         }
     }
-    
+
     Ok(())
 }
 
@@ -146,7 +150,7 @@ fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let stdin_content = detect_and_read_stdin()?;
 
-    validate_args(&args, &stdin_content)?;
+    validate_args(&args, stdin_content.as_ref())?;
     logging::setup_logging(args.log_level)?;
 
     let results = if let Some(stdin_content) = stdin_content {
@@ -154,7 +158,7 @@ fn main() -> anyhow::Result<()> {
     } else {
         run::find_and_replace((&args).into())?
     };
-    
+
     println!("{results}");
     Ok(())
 }
@@ -241,7 +245,7 @@ mod tests {
             ..test_args()
         };
 
-        let result = validate_args(&args, &None);
+        let result = validate_args(&args, None);
         assert!(result.is_ok());
     }
 
@@ -253,7 +257,7 @@ mod tests {
             ..test_args()
         };
 
-        let result = validate_args(&args, &None);
+        let result = validate_args(&args, None);
         assert!(result.is_ok());
     }
 
@@ -265,7 +269,7 @@ mod tests {
             ..test_args()
         };
 
-        let result = validate_args(&args, &None);
+        let result = validate_args(&args, None);
         assert!(result.is_err());
 
         let error_message = result.unwrap_err().to_string();
@@ -285,7 +289,7 @@ mod tests {
             ..test_args()
         };
 
-        let result = validate_args(&args, &None);
+        let result = validate_args(&args, None);
         assert!(result.is_err());
 
         let error_message = result.unwrap_err().to_string();

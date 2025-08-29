@@ -2,7 +2,7 @@ use indoc::indoc;
 
 use frep_core::{
     run::{find_and_replace, find_and_replace_text},
-    validation::{DirConfig, SearchConfiguration},
+    validation::{DirConfig, SearchConfig},
 };
 
 mod utils;
@@ -27,7 +27,7 @@ test_with_both_regex_modes_and_fixed_strings!(
             "binary.bin" => &[10, 19, 3, 92],
         );
 
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "TEST_PATTERN",
             replacement_text: "REPLACEMENT",
             fixed_strings,
@@ -87,7 +87,7 @@ test_with_both_regex_modes!(
             ),
         );
 
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: r"\d{3}",
             replacement_text: "XXX",
             fixed_strings: false,
@@ -141,7 +141,7 @@ test_with_both_regex_modes!(
             ),
         );
 
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: r"username: (\w+), email: ([^@]+)@",
             replacement_text: "user: $1 (contact: $2 at",
             fixed_strings: false,
@@ -160,7 +160,7 @@ test_with_both_regex_modes!(
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success: 1 file updated".to_string());
 
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: r"\[(\d{4})-(\d{2})-(\d{2})\]",
             replacement_text: "[$3/$2/$1]",
             fixed_strings: false,
@@ -218,7 +218,7 @@ async fn test_headless_advanced_regex_features() -> anyhow::Result<()> {
     );
 
     // Negative lookahead - match 'let' but not 'let mut'
-    let search_config = SearchConfiguration {
+    let search_config = SearchConfig {
         search_text: r"let(?!\s+mut)",
         replacement_text: "const",
         fixed_strings: false,
@@ -237,7 +237,7 @@ async fn test_headless_advanced_regex_features() -> anyhow::Result<()> {
     assert_eq!(result.unwrap(), "Success: 1 file updated".to_string());
 
     // Positive lookbehind - match numbers after headings
-    let search_config = SearchConfiguration {
+    let search_config = SearchConfig {
         search_text: r"(?<=# )[A-Za-z]+\s+(\d+)",
         replacement_text: "Section $1",
         fixed_strings: false,
@@ -256,7 +256,7 @@ async fn test_headless_advanced_regex_features() -> anyhow::Result<()> {
     assert_eq!(result.unwrap(), "Success: 1 file updated".to_string());
 
     // Add spaces after commas in CSV file
-    let search_config = SearchConfiguration {
+    let search_config = SearchConfig {
         search_text: ",",
         replacement_text: ", ",
         fixed_strings: true,
@@ -325,7 +325,7 @@ test_with_both_regex_modes_and_fixed_strings!(
         );
 
         // Include glob - only match Rust files
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "REPLACE_ME",
             replacement_text: "REPLACED_CODE",
             fixed_strings,
@@ -369,7 +369,7 @@ test_with_both_regex_modes_and_fixed_strings!(
         );
 
         // Exclude glob - exclude test files
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "REPLACED_CODE",
             replacement_text: "FINAL_VERSION",
             fixed_strings,
@@ -413,7 +413,7 @@ test_with_both_regex_modes_and_fixed_strings!(
         );
 
         // Multiple include globs
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "REPLACE_ME",
             replacement_text: "DOCS_REPLACED",
             fixed_strings,
@@ -475,7 +475,7 @@ test_with_both_regex_modes_and_fixed_strings!(
             ),
         );
 
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "whole_word",
             replacement_text: "REPLACED",
             fixed_strings,
@@ -527,7 +527,7 @@ test_with_both_regex_modes_and_fixed_strings!(
             ),
         );
 
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "pattern",
             replacement_text: "REPLACED",
             fixed_strings,
@@ -572,7 +572,7 @@ test_with_both_regex_modes_and_fixed_strings!(
             ),
         );
 
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "pattern",
             replacement_text: "variable",
             fixed_strings,
@@ -619,7 +619,7 @@ test_with_both_regex_modes_and_fixed_strings!(
             "image.png" => &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
         );
 
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
             fixed_strings,
@@ -669,7 +669,7 @@ test_with_both_regex_modes_and_fixed_strings!(
             ),
         );
 
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
             fixed_strings,
@@ -713,7 +713,7 @@ test_with_both_regex_modes_and_fixed_strings!(
             ),
         );
 
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
             fixed_strings,
@@ -762,7 +762,7 @@ test_with_both_regex_modes_and_fixed_strings!(
         );
 
         // Default behavior - hidden files excluded
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
             fixed_strings,
@@ -796,7 +796,7 @@ test_with_both_regex_modes_and_fixed_strings!(
         );
 
         // Explicit include hidden files
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
             fixed_strings,
@@ -842,7 +842,7 @@ test_with_both_regex_modes!(
             )
         );
 
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "(", // Unclosed parenthesis = invalid regex
             replacement_text: "replacement",
             fixed_strings: false,
@@ -882,7 +882,7 @@ test_with_both_regex_modes_and_fixed_strings!(
             )
         );
 
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "valid",
             replacement_text: "replacement",
             fixed_strings,
@@ -954,7 +954,7 @@ test_with_both_regex_modes_and_fixed_strings!(
         );
 
         // Test include glob - only include .txt files
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
             fixed_strings,
@@ -1012,7 +1012,7 @@ test_with_both_regex_modes_and_fixed_strings!(
             )
         );
 
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
             fixed_strings,
@@ -1075,7 +1075,7 @@ test_with_both_regex_modes_and_fixed_strings!(
         );
 
         // Test exclude glob - exclude .txt files
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
             fixed_strings,
@@ -1221,7 +1221,7 @@ test_with_both_regex_modes_and_fixed_strings!(
         );
 
         // Include all .rs files but exclude those in tests directory
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
             fixed_strings,
@@ -1357,7 +1357,7 @@ test_with_both_regex_modes_and_fixed_strings!(
             ),
         );
 
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "PATTERN",
             replacement_text: "REPLACED",
             fixed_strings,
@@ -1424,7 +1424,7 @@ test_with_both_regex_modes!(test_no_multiline_matches, |advanced_regex| async mo
     );
 
     // Search for a pattern that would match across lines if multiline matching was enabled
-    let search_config = SearchConfiguration {
+    let search_config = SearchConfig {
         search_text: r"START.*END",
         replacement_text: "REPLACED",
         fixed_strings: false,
@@ -1469,7 +1469,7 @@ test_with_both_regex_modes_and_fixed_strings!(
             Multiple lines with TEST_PATTERN here."
         };
 
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "TEST_PATTERN",
             replacement_text: "REPLACEMENT",
             fixed_strings,
@@ -1500,7 +1500,7 @@ test_with_both_regex_modes!(test_text_regex_replacement, |advanced_regex| async 
             IP: 192.168.1.1"
     };
 
-    let search_config = SearchConfiguration {
+    let search_config = SearchConfig {
         search_text: r"\d{3}",
         replacement_text: "XXX",
         fixed_strings: false,
@@ -1531,7 +1531,7 @@ test_with_both_regex_modes!(
             username: jane_smith, email: jane@example.com"
         };
 
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: r"username: (\w+), email: ([^@]+)@",
             replacement_text: "user: $1 (contact: $2 at",
             fixed_strings: false,
@@ -1555,7 +1555,7 @@ test_with_both_regex_modes!(
             [2023-02-20] ERROR: Connection failed"
         };
 
-        let search_config2 = SearchConfiguration {
+        let search_config2 = SearchConfig {
             search_text: r"\[(\d{4})-(\d{2})-(\d{2})\]",
             replacement_text: "[$3/$2/$1]",
             fixed_strings: false,
@@ -1587,7 +1587,7 @@ async fn test_text_advanced_regex_features() -> anyhow::Result<()> {
         const MAX_SIZE: usize = 100;"
     };
 
-    let search_config = SearchConfiguration {
+    let search_config = SearchConfig {
         search_text: r"let(?!\s+mut)",
         replacement_text: "const",
         fixed_strings: false,
@@ -1614,7 +1614,7 @@ async fn test_text_advanced_regex_features() -> anyhow::Result<()> {
         This is **bold** and *italic* text."
     };
 
-    let search_config2 = SearchConfiguration {
+    let search_config2 = SearchConfig {
         search_text: r"(?<=# )[A-Za-z]+\s+(\d+)",
         replacement_text: "Section $1",
         fixed_strings: false,
@@ -1645,7 +1645,7 @@ test_with_both_regex_modes_and_fixed_strings!(
             Also xwhole_wordx and sub_whole_word_part."
         };
 
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "whole_word",
             replacement_text: "REPLACED",
             fixed_strings,
@@ -1677,7 +1677,7 @@ test_with_both_regex_modes_and_fixed_strings!(
         };
 
         // Case sensitive test
-        let search_config_sensitive = SearchConfiguration {
+        let search_config_sensitive = SearchConfig {
             search_text: "pattern",
             replacement_text: "REPLACED",
             fixed_strings,
@@ -1697,7 +1697,7 @@ test_with_both_regex_modes_and_fixed_strings!(
         );
 
         // Case insensitive test
-        let search_config_insensitive = SearchConfiguration {
+        let search_config_insensitive = SearchConfig {
             search_text: "pattern",
             replacement_text: "variable",
             fixed_strings,
@@ -1725,7 +1725,7 @@ test_with_both_regex_modes_and_fixed_strings!(
     |advanced_regex, fixed_strings| async move {
         // Test empty string
         let empty_text = "";
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
             fixed_strings,
@@ -1740,7 +1740,7 @@ test_with_both_regex_modes_and_fixed_strings!(
 
         // Test single line with match
         let single_line = "This line has PATTERN in it";
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
             fixed_strings,
@@ -1755,7 +1755,7 @@ test_with_both_regex_modes_and_fixed_strings!(
 
         // Test single line without match
         let single_line_no_match = "This line has no matches";
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
             fixed_strings,
@@ -1780,7 +1780,7 @@ test_with_both_regex_modes_and_fixed_strings!(
             Another line with PATTERN and PATTERN again"
         };
 
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "PATTERN",
             replacement_text: "REPLACED",
             fixed_strings,
@@ -1808,7 +1808,7 @@ test_with_both_regex_modes!(
     |advanced_regex| async move {
         let input_text = "This text won't be modified as the configuration will be invalid";
 
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "(", // Unclosed parenthesis = invalid regex
             replacement_text: "replacement",
             fixed_strings: false,
@@ -1840,7 +1840,7 @@ test_with_both_regex_modes!(
         };
 
         // Search for a pattern that would match across lines if multiline matching was enabled
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: r"START.*END",
             replacement_text: "REPLACED",
             fixed_strings: false,
@@ -1879,7 +1879,7 @@ test_with_both_regex_modes_and_fixed_strings!(
             Line 4 with PATTERN"
         };
 
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
             fixed_strings,
@@ -1905,7 +1905,7 @@ test_with_both_regex_modes_and_fixed_strings!(
             Line 1 with PATTERN
             Line 2 with PATTERN"
         };
-        let search_config_trailing = SearchConfiguration {
+        let search_config_trailing = SearchConfig {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
             fixed_strings,
@@ -1936,7 +1936,7 @@ test_with_both_regex_modes_and_fixed_strings!(
             Tabs:\t\tPATTERN\t\there"
         };
 
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "PATTERN",
             replacement_text: "REPLACED",
             fixed_strings,
@@ -1967,7 +1967,7 @@ test_with_both_regex_modes_and_fixed_strings!(
         let long_line = "A".repeat(1000) + "PATTERN" + &"B".repeat(1000);
         let input_text = format!("Short line\n{long_line}\nAnother short line");
 
-        let search_config = SearchConfiguration {
+        let search_config = SearchConfig {
             search_text: "PATTERN",
             replacement_text: "REPLACED",
             fixed_strings,

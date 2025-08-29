@@ -1,6 +1,6 @@
 use anyhow::bail;
 use clap::Parser;
-use frep_core::validation::{DirConfig, SearchConfiguration};
+use frep_core::validation::{DirConfig, SearchConfig};
 use simple_log::LevelFilter;
 use std::{
     io::{self, IsTerminal, Read},
@@ -136,7 +136,7 @@ fn main() -> anyhow::Result<()> {
     validate_args(&args, stdin_content.as_ref())?;
     logging::setup_logging(args.log_level)?;
 
-    let search_config = SearchConfiguration {
+    let search_config = SearchConfig {
         search_text: &args.search_text,
         replacement_text: args.replace_text.as_deref().unwrap_or(""),
         fixed_strings: args.fixed_strings,

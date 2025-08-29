@@ -9,7 +9,7 @@ use crate::utils;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
-pub struct SearchConfiguration<'a> {
+pub struct SearchConfig<'a> {
     pub search_text: &'a str,
     pub replacement_text: &'a str,
     pub fixed_strings: bool,
@@ -96,7 +96,7 @@ impl<T> ValidationResult<T> {
 
 #[allow(clippy::needless_pass_by_value)]
 pub fn validate_search_configuration<H: ValidationErrorHandler>(
-    search_config: SearchConfiguration<'_>,
+    search_config: SearchConfig<'_>,
     dir_config: Option<DirConfig<'_>>,
     error_handler: &mut H,
 ) -> anyhow::Result<ValidationResult<(ParsedSearchConfig, Option<ParsedDirConfig>)>> {
@@ -128,7 +128,7 @@ pub fn validate_search_configuration<H: ValidationErrorHandler>(
     }
 }
 
-pub fn parse_search_text(config: &SearchConfiguration<'_>) -> anyhow::Result<SearchType> {
+pub fn parse_search_text(config: &SearchConfig<'_>) -> anyhow::Result<SearchType> {
     if !config.match_whole_word && config.match_case {
         // No conversion required
         let search = if config.fixed_strings {
@@ -162,7 +162,7 @@ pub fn parse_search_text(config: &SearchConfiguration<'_>) -> anyhow::Result<Sea
 }
 
 fn parse_search_text_with_error_handler<H: ValidationErrorHandler>(
-    config: &SearchConfiguration<'_>,
+    config: &SearchConfig<'_>,
     error_handler: &mut H,
 ) -> anyhow::Result<ValidationResult<SearchType>> {
     match parse_search_text(config) {
@@ -212,8 +212,8 @@ fn parse_overrides<H: ValidationErrorHandler>(
 mod tests {
     use super::*;
 
-    fn create_search_test_config<'a>() -> SearchConfiguration<'a> {
-        SearchConfiguration {
+    fn create_search_test_config<'a>() -> SearchConfig<'a> {
+        SearchConfig {
             search_text: "test",
             replacement_text: "replacement",
             fixed_strings: false,
@@ -312,7 +312,7 @@ mod tests {
 
         #[test]
         fn test_convert_regex_whole_word() {
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: "test",
                 replacement_text: "",
                 fixed_strings: true,
@@ -330,7 +330,7 @@ mod tests {
 
         #[test]
         fn test_convert_regex_case_insensitive() {
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: "Test",
                 replacement_text: "",
                 fixed_strings: true,
@@ -345,7 +345,7 @@ mod tests {
 
         #[test]
         fn test_convert_regex_whole_word_and_case_insensitive() {
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: "Test",
                 replacement_text: "",
                 fixed_strings: true,
@@ -363,7 +363,7 @@ mod tests {
 
         #[test]
         fn test_convert_regex_escapes_special_chars() {
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: "test.regex*",
                 replacement_text: "",
                 fixed_strings: true,
@@ -378,7 +378,7 @@ mod tests {
 
         #[test]
         fn test_convert_regex_from_existing_pattern() {
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: r"\d+",
                 replacement_text: "",
                 fixed_strings: false,

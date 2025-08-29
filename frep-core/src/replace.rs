@@ -957,7 +957,7 @@ mod tests {
     }
 
     mod replace_if_match_tests {
-        use crate::validation::SearchConfiguration;
+        use crate::validation::SearchConfig;
 
         use super::*;
 
@@ -965,14 +965,12 @@ mod tests {
             use crate::{
                 search::ParsedSearchConfig,
                 validation::{
-                    SearchConfiguration, SimpleErrorHandler, ValidationResult,
+                    SearchConfig, SimpleErrorHandler, ValidationResult,
                     validate_search_configuration,
                 },
             };
 
-            pub fn must_parse_search_config(
-                search_config: SearchConfiguration<'_>,
-            ) -> ParsedSearchConfig {
+            pub fn must_parse_search_config(search_config: SearchConfig<'_>) -> ParsedSearchConfig {
                 let mut error_handler = SimpleErrorHandler::new();
                 let (search_config, _dir_config) =
                     match validate_search_configuration(search_config, None, &mut error_handler)
@@ -996,7 +994,7 @@ mod tests {
 
                 #[test]
                 fn test_basic_replacement() {
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: "world",
                         fixed_strings: true,
                         match_whole_word: true,
@@ -1014,7 +1012,7 @@ mod tests {
 
                 #[test]
                 fn test_case_sensitivity() {
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: "world",
                         fixed_strings: true,
                         match_whole_word: true,
@@ -1032,7 +1030,7 @@ mod tests {
 
                 #[test]
                 fn test_word_boundaries() {
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: "world",
                         fixed_strings: true,
                         match_whole_word: true,
@@ -1054,7 +1052,7 @@ mod tests {
 
                 #[test]
                 fn test_basic_replacement() {
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: "world",
                         fixed_strings: true,
                         match_whole_word: true,
@@ -1072,7 +1070,7 @@ mod tests {
 
                 #[test]
                 fn test_case_insensitivity() {
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: "world",
                         fixed_strings: true,
                         match_whole_word: true,
@@ -1090,7 +1088,7 @@ mod tests {
 
                 #[test]
                 fn test_word_boundaries() {
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: "world",
                         fixed_strings: true,
                         match_whole_word: true,
@@ -1108,7 +1106,7 @@ mod tests {
 
                 #[test]
                 fn test_unicode() {
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: "café",
                         fixed_strings: true,
                         match_whole_word: true,
@@ -1130,7 +1128,7 @@ mod tests {
 
                 #[test]
                 fn test_basic_replacement() {
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: "world",
                         fixed_strings: true,
                         match_whole_word: false,
@@ -1148,7 +1146,7 @@ mod tests {
 
                 #[test]
                 fn test_case_sensitivity() {
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: "world",
                         fixed_strings: true,
                         match_whole_word: false,
@@ -1166,7 +1164,7 @@ mod tests {
 
                 #[test]
                 fn test_substring_matches() {
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: "world",
                         fixed_strings: true,
                         match_whole_word: false,
@@ -1188,7 +1186,7 @@ mod tests {
 
                 #[test]
                 fn test_basic_replacement() {
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: "world",
                         fixed_strings: true,
                         match_whole_word: false,
@@ -1206,7 +1204,7 @@ mod tests {
 
                 #[test]
                 fn test_case_insensitivity() {
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: "world",
                         fixed_strings: true,
                         match_whole_word: false,
@@ -1224,7 +1222,7 @@ mod tests {
 
                 #[test]
                 fn test_substring_matches() {
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: "world",
                         fixed_strings: true,
                         match_whole_word: false,
@@ -1246,14 +1244,14 @@ mod tests {
             use super::*;
 
             mod whole_word_true_match_case_true {
-                use crate::validation::SearchConfiguration;
+                use crate::validation::SearchConfig;
 
                 use super::*;
 
                 #[test]
                 fn test_basic_regex() {
                     let re_str = r"w\w+d";
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: re_str,
                         fixed_strings: false,
                         match_whole_word: true,
@@ -1272,7 +1270,7 @@ mod tests {
                 #[test]
                 fn test_case_sensitivity() {
                     let re_str = r"world";
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: re_str,
                         fixed_strings: false,
                         match_whole_word: true,
@@ -1291,7 +1289,7 @@ mod tests {
                 #[test]
                 fn test_word_boundaries() {
                     let re_str = r"world";
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: re_str,
                         fixed_strings: false,
                         match_whole_word: true,
@@ -1314,7 +1312,7 @@ mod tests {
                 #[test]
                 fn test_basic_regex() {
                     let re_str = r"w\w+d";
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: re_str,
                         fixed_strings: false,
                         match_whole_word: true,
@@ -1333,7 +1331,7 @@ mod tests {
                 #[test]
                 fn test_word_boundaries() {
                     let re_str = r"world";
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: re_str,
                         fixed_strings: false,
                         match_whole_word: true,
@@ -1352,7 +1350,7 @@ mod tests {
                 #[test]
                 fn test_special_characters() {
                     let re_str = r"\d+";
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: re_str,
                         fixed_strings: false,
                         match_whole_word: true,
@@ -1371,7 +1369,7 @@ mod tests {
                 #[test]
                 fn test_unicode_word_boundaries() {
                     let re_str = r"\b\p{Script=Han}{2}\b";
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: re_str,
                         fixed_strings: false,
                         match_whole_word: true,
@@ -1395,7 +1393,7 @@ mod tests {
                 #[test]
                 fn test_basic_regex() {
                     let re_str = r"w\w+d";
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: re_str,
                         fixed_strings: false,
                         match_whole_word: false,
@@ -1414,7 +1412,7 @@ mod tests {
                 #[test]
                 fn test_case_sensitivity() {
                     let re_str = r"world";
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: re_str,
                         fixed_strings: false,
                         match_whole_word: false,
@@ -1433,7 +1431,7 @@ mod tests {
                 #[test]
                 fn test_substring_matches() {
                     let re_str = r"world";
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: re_str,
                         fixed_strings: false,
                         match_whole_word: false,
@@ -1456,7 +1454,7 @@ mod tests {
                 #[test]
                 fn test_basic_regex() {
                     let re_str = r"w\w+d";
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: re_str,
                         fixed_strings: false,
                         match_whole_word: false,
@@ -1475,7 +1473,7 @@ mod tests {
                 #[test]
                 fn test_substring_matches() {
                     let re_str = r"world";
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: re_str,
                         fixed_strings: false,
                         match_whole_word: false,
@@ -1494,7 +1492,7 @@ mod tests {
                 #[test]
                 fn test_complex_pattern() {
                     let re_str = r"\d{3}-\d{2}-\d{4}";
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: re_str,
                         fixed_strings: false,
                         match_whole_word: false,
@@ -1522,7 +1520,7 @@ mod tests {
                 #[test]
                 fn test_lookbehind() {
                     let re_str = r"(?<=@)\w+";
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: re_str,
                         match_whole_word: true,
                         fixed_strings: false,
@@ -1545,7 +1543,7 @@ mod tests {
                 #[test]
                 fn test_lookahead() {
                     let re_str = r"\w+(?=\.\w+$)";
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: re_str,
                         match_whole_word: true,
                         fixed_strings: false,
@@ -1564,7 +1562,7 @@ mod tests {
                 #[test]
                 fn test_case_sensitivity() {
                     let re_str = r"world";
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: re_str,
                         match_whole_word: true,
                         fixed_strings: false,
@@ -1587,7 +1585,7 @@ mod tests {
                 #[test]
                 fn test_lookbehind_case_insensitive() {
                     let re_str = r"(?<=@)\w+";
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: re_str,
                         match_whole_word: true,
                         fixed_strings: false,
@@ -1610,7 +1608,7 @@ mod tests {
                 #[test]
                 fn test_word_boundaries() {
                     let re_str = r"world";
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: re_str,
                         match_whole_word: true,
                         fixed_strings: false,
@@ -1633,7 +1631,7 @@ mod tests {
                 #[test]
                 fn test_complex_pattern() {
                     let re_str = r"(?<=\d{4}-\d{2}-\d{2}T)\d{2}:\d{2}";
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: re_str,
                         match_whole_word: false,
                         fixed_strings: false,
@@ -1656,7 +1654,7 @@ mod tests {
                 #[test]
                 fn test_case_sensitivity() {
                     let re_str = r"WORLD";
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: re_str,
                         match_whole_word: false,
                         fixed_strings: false,
@@ -1679,7 +1677,7 @@ mod tests {
                 #[test]
                 fn test_complex_pattern_case_insensitive() {
                     let re_str = r"(?<=\[)\w+(?=\])";
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: re_str,
                         match_whole_word: false,
                         fixed_strings: false,
@@ -1702,7 +1700,7 @@ mod tests {
                 #[test]
                 fn test_unicode_support() {
                     let re_str = r"\p{Greek}+";
-                    let search_config = SearchConfiguration {
+                    let search_config = SearchConfig {
                         search_text: re_str,
                         match_whole_word: false,
                         fixed_strings: false,
@@ -1722,7 +1720,7 @@ mod tests {
 
         #[test]
         fn test_multiple_replacements() {
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: "world",
                 fixed_strings: true,
                 match_whole_word: true,
@@ -1739,7 +1737,7 @@ mod tests {
 
         #[test]
         fn test_no_match() {
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: "world",
                 fixed_strings: true,
                 match_whole_word: true,
@@ -1752,7 +1750,7 @@ mod tests {
                 replacement_if_match("worldwide", &parsed.search, &parsed.replace),
                 None
             );
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: "world",
                 fixed_strings: true,
                 match_whole_word: true,
@@ -1769,7 +1767,7 @@ mod tests {
 
         #[test]
         fn test_word_boundaries() {
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: "world",
                 fixed_strings: true,
                 match_whole_word: true,
@@ -1782,7 +1780,7 @@ mod tests {
                 replacement_if_match(",world-", &parsed.search, &parsed.replace),
                 Some(",earth-".to_string())
             );
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: "world",
                 fixed_strings: true,
                 match_whole_word: true,
@@ -1795,7 +1793,7 @@ mod tests {
                 replacement_if_match("world-word", &parsed.search, &parsed.replace),
                 Some("earth-word".to_string())
             );
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: "world",
                 fixed_strings: true,
                 match_whole_word: true,
@@ -1812,7 +1810,7 @@ mod tests {
 
         #[test]
         fn test_case_sensitive() {
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: "world",
                 fixed_strings: true,
                 match_whole_word: true,
@@ -1825,7 +1823,7 @@ mod tests {
                 replacement_if_match("Hello WORLD", &parsed.search, &parsed.replace),
                 None
             );
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: "wOrld",
                 fixed_strings: true,
                 match_whole_word: true,
@@ -1842,7 +1840,7 @@ mod tests {
 
         #[test]
         fn test_empty_strings() {
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: "world",
                 fixed_strings: true,
                 match_whole_word: true,
@@ -1855,7 +1853,7 @@ mod tests {
                 replacement_if_match("", &parsed.search, &parsed.replace),
                 None
             );
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: "",
                 fixed_strings: true,
                 match_whole_word: true,
@@ -1872,7 +1870,7 @@ mod tests {
 
         #[test]
         fn test_substring_no_match() {
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: "world",
                 fixed_strings: true,
                 match_whole_word: true,
@@ -1885,7 +1883,7 @@ mod tests {
                 replacement_if_match("worldwide web", &parsed.search, &parsed.replace),
                 None
             );
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: "world",
                 fixed_strings: true,
                 match_whole_word: true,
@@ -1902,7 +1900,7 @@ mod tests {
 
         #[test]
         fn test_special_regex_chars() {
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: "(world)",
                 fixed_strings: true,
                 match_whole_word: true,
@@ -1915,7 +1913,7 @@ mod tests {
                 replacement_if_match("hello (world)", &parsed.search, &parsed.replace),
                 Some("hello earth".to_string())
             );
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: "world.*",
                 fixed_strings: true,
                 match_whole_word: true,
@@ -1933,7 +1931,7 @@ mod tests {
         #[test]
         fn test_basic_regex_patterns() {
             let re_str = r"ax*b";
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,
@@ -1946,7 +1944,7 @@ mod tests {
                 replacement_if_match("foo axxxxb bar", &parsed.search, &parsed.replace),
                 Some("foo NEW bar".to_string())
             );
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,
@@ -1964,7 +1962,7 @@ mod tests {
         #[test]
         fn test_patterns_with_spaces() {
             let re_str = r"hel+o world";
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,
@@ -1977,7 +1975,7 @@ mod tests {
                 replacement_if_match("say hello world!", &parsed.search, &parsed.replace),
                 Some("say hi earth!".to_string())
             );
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,
@@ -1995,7 +1993,7 @@ mod tests {
         #[test]
         fn test_multiple_matches() {
             let re_str = r"a+b+";
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,
@@ -2008,7 +2006,7 @@ mod tests {
                 replacement_if_match("foo aab abb", &parsed.search, &parsed.replace),
                 Some("foo X X".to_string())
             );
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,
@@ -2021,7 +2019,7 @@ mod tests {
                 replacement_if_match("ab abaab abb", &parsed.search, &parsed.replace),
                 Some("X abaab X".to_string())
             );
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,
@@ -2034,7 +2032,7 @@ mod tests {
                 replacement_if_match("ababaababb", &parsed.search, &parsed.replace),
                 None
             );
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,
@@ -2053,7 +2051,7 @@ mod tests {
         fn test_boundary_cases() {
             let re_str = r"foo\s*bar";
             // At start of string
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,
@@ -2067,7 +2065,7 @@ mod tests {
                 Some("TEST baz".to_string())
             );
             // At end of string
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,
@@ -2081,7 +2079,7 @@ mod tests {
                 Some("baz TEST".to_string())
             );
             // With punctuation
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,
@@ -2099,7 +2097,7 @@ mod tests {
         #[test]
         fn test_with_punctuation() {
             let re_str = r"a\d+b";
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,
@@ -2112,7 +2110,7 @@ mod tests {
                 replacement_if_match("(a42b)", &parsed.search, &parsed.replace),
                 Some("(X)".to_string())
             );
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,
@@ -2130,7 +2128,7 @@ mod tests {
         #[test]
         fn test_complex_patterns() {
             let re_str = r"[a-z]+\d+[a-z]+";
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,
@@ -2143,7 +2141,7 @@ mod tests {
                 replacement_if_match("test9 abc123def 8xyz", &parsed.search, &parsed.replace),
                 Some("test9 NEW 8xyz".to_string())
             );
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,
@@ -2161,7 +2159,7 @@ mod tests {
         #[test]
         fn test_optional_patterns() {
             let re_str = r"colou?r";
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,
@@ -2179,7 +2177,7 @@ mod tests {
         #[test]
         fn test_empty_haystack() {
             let re_str = r"test";
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,
@@ -2197,7 +2195,7 @@ mod tests {
         #[test]
         fn test_empty_search_regex() {
             let re_str = r"";
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,
@@ -2215,7 +2213,7 @@ mod tests {
         #[test]
         fn test_single_char() {
             let re_str = r"a";
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,
@@ -2228,7 +2226,7 @@ mod tests {
                 replacement_if_match("b a c", &parsed.search, &parsed.replace),
                 Some("b X c".to_string())
             );
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,
@@ -2246,7 +2244,7 @@ mod tests {
         #[test]
         fn test_escaped_chars() {
             let re_str = r"\(\d+\)";
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,
@@ -2264,7 +2262,7 @@ mod tests {
         #[test]
         fn test_with_unicode() {
             let re_str = r"λ\d+";
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,
@@ -2277,7 +2275,7 @@ mod tests {
                 replacement_if_match("calc λ123 β", &parsed.search, &parsed.replace),
                 Some("calc X β".to_string())
             );
-            let search_config = SearchConfiguration {
+            let search_config = SearchConfig {
                 search_text: re_str,
                 fixed_strings: false,
                 match_whole_word: true,

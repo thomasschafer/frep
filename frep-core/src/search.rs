@@ -168,18 +168,18 @@ impl FileSearcher {
     /// };
     /// use regex::Regex;
     /// use ignore::{WalkState, overrides::Override};
-    /// use frep_core::search::{FileSearcher, FileSearcherConfig, SearchResult, SearchType};
+    /// use frep_core::search::{FileSearcher, ParsedSearchConfig, ParsedDirConfig, SearchResult, SearchType};
     ///
-    /// let config = FileSearcherConfig {
+    /// let search_config = ParsedSearchConfig {
     ///     search: SearchType::Pattern(Regex::new("pattern").unwrap()),
     ///     replace: "replacement".to_string(),
-    ///     whole_word: false,
-    ///     match_case: true,
+    /// };
+    /// let dir_config = ParsedDirConfig {
     ///     overrides: Override::empty(),
     ///     root_dir: PathBuf::from("."),
     ///     include_hidden: false,
     /// };
-    /// let searcher = FileSearcher::new(config);
+    /// let searcher = FileSearcher::new(search_config, dir_config);
     /// let cancelled = AtomicBool::new(false);
     ///
     /// searcher.walk_files(Some(&cancelled), move || {

@@ -4,14 +4,14 @@ use crate::{
     replace::replacement_if_match,
     search::FileSearcher,
     validation::{
-        DirConfig, SearchConfiguration, SimpleErrorHandler, ValidationResult,
+        DirConfig, SearchConfig, SimpleErrorHandler, ValidationResult,
         validate_search_configuration,
     },
 };
 
 // Perform a find-and-replace recursively in a given directory
 pub fn find_and_replace(
-    search_config: SearchConfiguration<'_>,
+    search_config: SearchConfig<'_>,
     dir_config: DirConfig<'_>,
 ) -> anyhow::Result<String> {
     find_and_replace_impl(SearchType::Files, search_config, Some(dir_config))
@@ -20,7 +20,7 @@ pub fn find_and_replace(
 /// Perform a find-and-replace in a string slice
 pub fn find_and_replace_text(
     content: &str,
-    search_config: SearchConfiguration<'_>,
+    search_config: SearchConfig<'_>,
 ) -> anyhow::Result<String> {
     find_and_replace_impl(SearchType::String(content), search_config, None)
 }
@@ -33,7 +33,7 @@ enum SearchType<'a> {
 #[allow(clippy::needless_pass_by_value)]
 fn find_and_replace_impl(
     search_type: SearchType<'_>,
-    search_config: SearchConfiguration<'_>,
+    search_config: SearchConfig<'_>,
     dir_config: Option<DirConfig<'_>>,
 ) -> anyhow::Result<String> {
     let mut error_handler = SimpleErrorHandler::new();

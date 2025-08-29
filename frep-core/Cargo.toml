@@ -1,6 +1,6 @@
 [package]
 name = "frep-core"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 authors = ["thomasschafer97@gmail.com"]
 description = "Core functionality for find and replace operations"

@@ -4,13 +4,17 @@ use crate::{
     replace::replacement_if_match,
     search::FileSearcher,
     validation::{
-        SearchConfiguration, SimpleErrorHandler, ValidationResult, validate_search_configuration,
+        DirConfig, SearchConfiguration, SimpleErrorHandler, ValidationResult,
+        validate_search_configuration,
     },
 };
 
 // Perform a find-and-replace recursively in a given directory
-pub fn find_and_replace(search_config: SearchConfiguration<'_>) -> anyhow::Result<String> {
-    find_and_replace_impl(SearchType::Files, search_config)
+pub fn find_and_replace(
+    search_config: SearchConfiguration<'_>,
+    dir_config: DirConfig<'_>,
+) -> anyhow::Result<String> {
+    find_and_replace_impl(SearchType::Files, search_config, Some(dir_config))
 }
 
 /// Perform a find-and-replace in a string slice
@@ -18,7 +22,7 @@ pub fn find_and_replace_text(
     content: &str,
     search_config: SearchConfiguration<'_>,
 ) -> anyhow::Result<String> {
-    find_and_replace_impl(SearchType::String(content), search_config)
+    find_and_replace_impl(SearchType::String(content), search_config, None)
 }
 
 enum SearchType<'a> {
@@ -30,14 +34,16 @@ enum SearchType<'a> {
 fn find_and_replace_impl(
     search_type: SearchType<'_>,
     search_config: SearchConfiguration<'_>,
+    dir_config: Option<DirConfig<'_>>,
 ) -> anyhow::Result<String> {
     let mut error_handler = SimpleErrorHandler::new();
-    let search_config = match validate_search_configuration(search_config, &mut error_handler)? {
-        ValidationResult::Success(search_config) => search_config,
-        ValidationResult::ValidationErrors => {
-            bail!("{}", error_handler.errors_str().unwrap());
-        }
-    };
+    let (search_config, dir_config) =
+        match validate_search_configuration(search_config, dir_config, &mut error_handler)? {
+            ValidationResult::Success(search_config) => search_config,
+            ValidationResult::ValidationErrors => {
+                bail!("{}", error_handler.errors_str().unwrap());
+            }
+        };
 
     match search_type {
         SearchType::String(content) => {
@@ -58,7 +64,10 @@ fn find_and_replace_impl(
             Ok(result)
         }
         SearchType::Files => {
-            let searcher = FileSearcher::new(search_config);
+            let searcher = FileSearcher::new(
+                search_config,
+                dir_config.expect("Found None dir_config when search_type is Files"),
+            );
             let num_files_replaced = searcher.walk_files_and_replace(None);
 
             Ok(format!(

@@ -1,6 +1,6 @@
 use anyhow::bail;
 use clap::Parser;
-use frep_core::validation::SearchConfiguration;
+use frep_core::validation::{DirConfig, SearchConfiguration};
 use simple_log::LevelFilter;
 use std::{
     io::{self, IsTerminal, Read},
@@ -129,23 +129,6 @@ fn parse_directory(dir: &str) -> anyhow::Result<PathBuf> {
     }
 }
 
-impl<'a> From<&'a Args> for SearchConfiguration<'a> {
-    fn from(args: &'a Args) -> Self {
-        Self {
-            search_text: &args.search_text,
-            replacement_text: args.replace_text.as_deref().unwrap_or(""),
-            fixed_strings: args.fixed_strings,
-            advanced_regex: args.advanced_regex,
-            include_globs: args.include_files.as_deref(),
-            exclude_globs: args.exclude_files.as_deref(),
-            match_whole_word: args.match_whole_word,
-            match_case: !args.case_insensitive,
-            include_hidden: args.hidden,
-            directory: args.directory.clone(),
-        }
-    }
-}
-
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let stdin_content = detect_and_read_stdin()?;
@@ -153,10 +136,24 @@ fn main() -> anyhow::Result<()> {
     validate_args(&args, stdin_content.as_ref())?;
     logging::setup_logging(args.log_level)?;
 
+    let search_config = SearchConfiguration {
+        search_text: &args.search_text,
+        replacement_text: args.replace_text.as_deref().unwrap_or(""),
+        fixed_strings: args.fixed_strings,
+        advanced_regex: args.advanced_regex,
+        match_whole_word: args.match_whole_word,
+        match_case: !args.case_insensitive,
+    };
+    let dir_config = DirConfig {
+        include_globs: args.include_files.as_deref(),
+        exclude_globs: args.exclude_files.as_deref(),
+        include_hidden: args.hidden,
+        directory: args.directory.clone(),
+    };
     let results = if let Some(stdin_content) = stdin_content {
-        run::find_and_replace_text(&stdin_content, (&args).into())?
+        run::find_and_replace_text(&stdin_content, search_config)?
     } else {
-        run::find_and_replace((&args).into())?
+        run::find_and_replace(search_config, dir_config)?
     };
 
     println!("{results}");

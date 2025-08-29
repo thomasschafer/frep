@@ -955,4 +955,1342 @@ mod tests {
             assert_eq!(results[9].search_result.line_number, 901);
         }
     }
+
+    mod replace_if_match_tests {
+        use crate::validation::SearchConfiguration;
+
+        use super::*;
+
+        mod test_helpers {
+            use crate::{
+                search::ParsedSearchConfig,
+                validation::{
+                    SearchConfiguration, SimpleErrorHandler, ValidationResult,
+                    validate_search_configuration,
+                },
+            };
+
+            pub fn must_parse_search_config(
+                search_config: SearchConfiguration<'_>,
+            ) -> ParsedSearchConfig {
+                let mut error_handler = SimpleErrorHandler::new();
+                let (search_config, _dir_config) =
+                    match validate_search_configuration(search_config, None, &mut error_handler)
+                        .unwrap()
+                    {
+                        ValidationResult::Success(search_config) => search_config,
+                        ValidationResult::ValidationErrors => {
+                            panic!("{}", error_handler.errors_str().unwrap());
+                        }
+                    };
+                search_config
+            }
+        }
+
+        mod fixed_string_tests {
+            use super::*;
+
+            mod whole_word_true_match_case_true {
+
+                use super::*;
+
+                #[test]
+                fn test_basic_replacement() {
+                    let search_config = SearchConfiguration {
+                        search_text: "world",
+                        fixed_strings: true,
+                        match_whole_word: true,
+                        match_case: true,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("hello world", &parsed.search, "earth"),
+                        Some("hello earth".to_string())
+                    );
+                }
+
+                #[test]
+                fn test_case_sensitivity() {
+                    let search_config = SearchConfiguration {
+                        search_text: "world",
+                        fixed_strings: true,
+                        match_whole_word: true,
+                        match_case: true,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("hello WORLD", &parsed.search, "earth"),
+                        None
+                    );
+                }
+
+                #[test]
+                fn test_word_boundaries() {
+                    let search_config = SearchConfiguration {
+                        search_text: "world",
+                        fixed_strings: true,
+                        match_whole_word: true,
+                        match_case: true,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("worldwide", &parsed.search, "earth"),
+                        None
+                    );
+                }
+            }
+
+            mod whole_word_true_match_case_false {
+                use super::*;
+
+                #[test]
+                fn test_basic_replacement() {
+                    let search_config = SearchConfiguration {
+                        search_text: "world",
+                        fixed_strings: true,
+                        match_whole_word: true,
+                        match_case: false,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("hello world", &parsed.search, "earth"),
+                        Some("hello earth".to_string())
+                    );
+                }
+
+                #[test]
+                fn test_case_insensitivity() {
+                    let search_config = SearchConfiguration {
+                        search_text: "world",
+                        fixed_strings: true,
+                        match_whole_word: true,
+                        match_case: false,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("hello WORLD", &parsed.search, "earth"),
+                        Some("hello earth".to_string())
+                    );
+                }
+
+                #[test]
+                fn test_word_boundaries() {
+                    let search_config = SearchConfiguration {
+                        search_text: "world",
+                        fixed_strings: true,
+                        match_whole_word: true,
+                        match_case: false,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("worldwide", &parsed.search, "earth"),
+                        None
+                    );
+                }
+
+                #[test]
+                fn test_unicode() {
+                    let search_config = SearchConfiguration {
+                        search_text: "café",
+                        fixed_strings: true,
+                        match_whole_word: true,
+                        match_case: false,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("Hello CAFÉ table", &parsed.search, "restaurant"),
+                        Some("Hello restaurant table".to_string())
+                    );
+                }
+            }
+
+            mod whole_word_false_match_case_true {
+                use super::*;
+
+                #[test]
+                fn test_basic_replacement() {
+                    let search_config = SearchConfiguration {
+                        search_text: "world",
+                        fixed_strings: true,
+                        match_whole_word: false,
+                        match_case: true,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("hello world", &parsed.search, "earth"),
+                        Some("hello earth".to_string())
+                    );
+                }
+
+                #[test]
+                fn test_case_sensitivity() {
+                    let search_config = SearchConfiguration {
+                        search_text: "world",
+                        fixed_strings: true,
+                        match_whole_word: false,
+                        match_case: true,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("hello WORLD", &parsed.search, "earth"),
+                        None
+                    );
+                }
+
+                #[test]
+                fn test_substring_matches() {
+                    let search_config = SearchConfiguration {
+                        search_text: "world",
+                        fixed_strings: true,
+                        match_whole_word: false,
+                        match_case: true,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("worldwide", &parsed.search, "earth"),
+                        Some("earthwide".to_string())
+                    );
+                }
+            }
+
+            mod whole_word_false_match_case_false {
+                use super::*;
+
+                #[test]
+                fn test_basic_replacement() {
+                    let search_config = SearchConfiguration {
+                        search_text: "world",
+                        fixed_strings: true,
+                        match_whole_word: false,
+                        match_case: false,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("hello world", &parsed.search, "earth"),
+                        Some("hello earth".to_string())
+                    );
+                }
+
+                #[test]
+                fn test_case_insensitivity() {
+                    let search_config = SearchConfiguration {
+                        search_text: "world",
+                        fixed_strings: true,
+                        match_whole_word: false,
+                        match_case: false,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("hello WORLD", &parsed.search, "earth"),
+                        Some("hello earth".to_string())
+                    );
+                }
+
+                #[test]
+                fn test_substring_matches() {
+                    let search_config = SearchConfiguration {
+                        search_text: "world",
+                        fixed_strings: true,
+                        match_whole_word: false,
+                        match_case: false,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("WORLDWIDE", &parsed.search, "earth"),
+                        Some("earthWIDE".to_string())
+                    );
+                }
+            }
+        }
+
+        mod regex_pattern_tests {
+            use super::*;
+
+            mod whole_word_true_match_case_true {
+                use crate::validation::SearchConfiguration;
+
+                use super::*;
+
+                #[test]
+                fn test_basic_regex() {
+                    let re_str = r"w\w+d";
+                    let search_config = SearchConfiguration {
+                        search_text: re_str,
+                        fixed_strings: false,
+                        match_whole_word: true,
+                        match_case: true,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("hello world", &parsed.search, "earth"),
+                        Some("hello earth".to_string())
+                    );
+                }
+
+                #[test]
+                fn test_case_sensitivity() {
+                    let re_str = r"world";
+                    let search_config = SearchConfiguration {
+                        search_text: re_str,
+                        fixed_strings: false,
+                        match_whole_word: true,
+                        match_case: true,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("hello WORLD", &parsed.search, "earth"),
+                        None
+                    );
+                }
+
+                #[test]
+                fn test_word_boundaries() {
+                    let re_str = r"world";
+                    let search_config = SearchConfiguration {
+                        search_text: re_str,
+                        fixed_strings: false,
+                        match_whole_word: true,
+                        match_case: true,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("worldwide", &parsed.search, "earth"),
+                        None
+                    );
+                }
+            }
+
+            mod whole_word_true_match_case_false {
+                use super::*;
+
+                #[test]
+                fn test_basic_regex() {
+                    let re_str = r"w\w+d";
+                    let search_config = SearchConfiguration {
+                        search_text: re_str,
+                        fixed_strings: false,
+                        match_whole_word: true,
+                        match_case: false,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("hello WORLD", &parsed.search, "earth"),
+                        Some("hello earth".to_string())
+                    );
+                }
+
+                #[test]
+                fn test_word_boundaries() {
+                    let re_str = r"world";
+                    let search_config = SearchConfiguration {
+                        search_text: re_str,
+                        fixed_strings: false,
+                        match_whole_word: true,
+                        match_case: false,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("worldwide", &parsed.search, "earth"),
+                        None
+                    );
+                }
+
+                #[test]
+                fn test_special_characters() {
+                    let re_str = r"\d+";
+                    let search_config = SearchConfiguration {
+                        search_text: re_str,
+                        fixed_strings: false,
+                        match_whole_word: true,
+                        match_case: false,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("test 123 number", &parsed.search, "NUM"),
+                        Some("test NUM number".to_string())
+                    );
+                }
+
+                #[test]
+                fn test_unicode_word_boundaries() {
+                    let re_str = r"\b\p{Script=Han}{2}\b";
+                    let search_config = SearchConfiguration {
+                        search_text: re_str,
+                        fixed_strings: false,
+                        match_whole_word: true,
+                        match_case: false,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert!(replacement_if_match("Text 世界 more", &parsed.search, "XX").is_some());
+                    assert!(replacement_if_match("Text世界more", &parsed.search, "XX").is_none());
+                }
+            }
+
+            mod whole_word_false_match_case_true {
+                use super::*;
+
+                #[test]
+                fn test_basic_regex() {
+                    let re_str = r"w\w+d";
+                    let search_config = SearchConfiguration {
+                        search_text: re_str,
+                        fixed_strings: false,
+                        match_whole_word: false,
+                        match_case: true,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("hello world", &parsed.search, "earth"),
+                        Some("hello earth".to_string())
+                    );
+                }
+
+                #[test]
+                fn test_case_sensitivity() {
+                    let re_str = r"world";
+                    let search_config = SearchConfiguration {
+                        search_text: re_str,
+                        fixed_strings: false,
+                        match_whole_word: false,
+                        match_case: true,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("hello WORLD", &parsed.search, "earth"),
+                        None
+                    );
+                }
+
+                #[test]
+                fn test_substring_matches() {
+                    let re_str = r"world";
+                    let search_config = SearchConfiguration {
+                        search_text: re_str,
+                        fixed_strings: false,
+                        match_whole_word: false,
+                        match_case: true,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("worldwide", &parsed.search, "earth"),
+                        Some("earthwide".to_string())
+                    );
+                }
+            }
+
+            mod whole_word_false_match_case_false {
+                use super::*;
+
+                #[test]
+                fn test_basic_regex() {
+                    let re_str = r"w\w+d";
+                    let search_config = SearchConfiguration {
+                        search_text: re_str,
+                        fixed_strings: false,
+                        match_whole_word: false,
+                        match_case: false,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("hello WORLD", &parsed.search, "earth"),
+                        Some("hello earth".to_string())
+                    );
+                }
+
+                #[test]
+                fn test_substring_matches() {
+                    let re_str = r"world";
+                    let search_config = SearchConfiguration {
+                        search_text: re_str,
+                        fixed_strings: false,
+                        match_whole_word: false,
+                        match_case: false,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("WORLDWIDE", &parsed.search, "earth"),
+                        Some("earthWIDE".to_string())
+                    );
+                }
+
+                #[test]
+                fn test_complex_pattern() {
+                    let re_str = r"\d{3}-\d{2}-\d{4}";
+                    let search_config = SearchConfiguration {
+                        search_text: re_str,
+                        fixed_strings: false,
+                        match_whole_word: false,
+                        match_case: false,
+                        replacement_text: "",
+                        advanced_regex: false,
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("SSN: 123-45-6789", &parsed.search, "XXX-XX-XXXX"),
+                        Some("SSN: XXX-XX-XXXX".to_string())
+                    );
+                }
+            }
+        }
+
+        mod fancy_regex_pattern_tests {
+            use super::*;
+
+            mod whole_word_true_match_case_true {
+
+                use super::*;
+
+                #[test]
+                fn test_lookbehind() {
+                    let re_str = r"(?<=@)\w+";
+                    let search_config = SearchConfiguration {
+                        search_text: re_str,
+                        match_whole_word: true,
+                        fixed_strings: false,
+                        advanced_regex: true,
+                        match_case: true,
+                        replacement_text: "",
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("email: user@example.com", &parsed.search, "domain"),
+                        Some("email: user@domain.com".to_string())
+                    );
+                }
+
+                #[test]
+                fn test_lookahead() {
+                    let re_str = r"\w+(?=\.\w+$)";
+                    let search_config = SearchConfiguration {
+                        search_text: re_str,
+                        match_whole_word: true,
+                        fixed_strings: false,
+                        advanced_regex: true,
+                        match_case: true,
+                        replacement_text: "",
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("file: document.pdf", &parsed.search, "report"),
+                        Some("file: report.pdf".to_string())
+                    );
+                }
+
+                #[test]
+                fn test_case_sensitivity() {
+                    let re_str = r"world";
+                    let search_config = SearchConfiguration {
+                        search_text: re_str,
+                        match_whole_word: true,
+                        fixed_strings: false,
+                        advanced_regex: true,
+                        match_case: true,
+                        replacement_text: "",
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("hello WORLD", &parsed.search, "earth"),
+                        None
+                    );
+                }
+            }
+
+            mod whole_word_true_match_case_false {
+                use super::*;
+
+                #[test]
+                fn test_lookbehind_case_insensitive() {
+                    let re_str = r"(?<=@)\w+";
+                    let search_config = SearchConfiguration {
+                        search_text: re_str,
+                        match_whole_word: true,
+                        fixed_strings: false,
+                        advanced_regex: true,
+                        match_case: false,
+                        replacement_text: "",
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("email: user@EXAMPLE.com", &parsed.search, "domain"),
+                        Some("email: user@domain.com".to_string())
+                    );
+                }
+
+                #[test]
+                fn test_word_boundaries() {
+                    let re_str = r"world";
+                    let search_config = SearchConfiguration {
+                        search_text: re_str,
+                        match_whole_word: true,
+                        fixed_strings: false,
+                        advanced_regex: true,
+                        match_case: false,
+                        replacement_text: "",
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("worldwide", &parsed.search, "earth"),
+                        None
+                    );
+                }
+            }
+
+            mod whole_word_false_match_case_true {
+                use super::*;
+
+                #[test]
+                fn test_complex_pattern() {
+                    let re_str = r"(?<=\d{4}-\d{2}-\d{2}T)\d{2}:\d{2}";
+                    let search_config = SearchConfiguration {
+                        search_text: re_str,
+                        match_whole_word: false,
+                        fixed_strings: false,
+                        advanced_regex: true,
+                        match_case: true,
+                        replacement_text: "",
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match(
+                            "Timestamp: 2023-01-15T14:30:00Z",
+                            &parsed.search,
+                            "XX:XX"
+                        ),
+                        Some("Timestamp: 2023-01-15TXX:XX:00Z".to_string())
+                    );
+                }
+
+                #[test]
+                fn test_case_sensitivity() {
+                    let re_str = r"WORLD";
+                    let search_config = SearchConfiguration {
+                        search_text: re_str,
+                        match_whole_word: false,
+                        fixed_strings: false,
+                        advanced_regex: true,
+                        match_case: true,
+                        replacement_text: "",
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("hello world", &parsed.search, "earth"),
+                        None
+                    );
+                }
+            }
+
+            mod whole_word_false_match_case_false {
+                use super::*;
+
+                #[test]
+                fn test_complex_pattern_case_insensitive() {
+                    let re_str = r"(?<=\[)\w+(?=\])";
+                    let search_config = SearchConfiguration {
+                        search_text: re_str,
+                        match_whole_word: false,
+                        fixed_strings: false,
+                        advanced_regex: true,
+                        match_case: false,
+                        replacement_text: "",
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("Tag: [WARNING] message", &parsed.search, "ERROR"),
+                        Some("Tag: [ERROR] message".to_string())
+                    );
+                }
+
+                #[test]
+                fn test_unicode_support() {
+                    let re_str = r"\p{Greek}+";
+                    let search_config = SearchConfiguration {
+                        search_text: re_str,
+                        match_whole_word: false,
+                        fixed_strings: false,
+                        advanced_regex: true,
+                        match_case: false,
+                        replacement_text: "",
+                    };
+                    let parsed = test_helpers::must_parse_search_config(search_config);
+
+                    assert_eq!(
+                        replacement_if_match("Symbol: αβγδ", &parsed.search, "GREEK"),
+                        Some("Symbol: GREEK".to_string())
+                    );
+                }
+            }
+        }
+
+        #[test]
+        fn test_multiple_replacements() {
+            let search_config = SearchConfiguration {
+                search_text: "world",
+                fixed_strings: true,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("world hello world", &parsed.search, "earth"),
+                Some("earth hello earth".to_string())
+            );
+        }
+
+        #[test]
+        fn test_no_match() {
+            let search_config = SearchConfiguration {
+                search_text: "world",
+                fixed_strings: true,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("worldwide", &parsed.search, "earth"),
+                None
+            );
+            let search_config = SearchConfiguration {
+                search_text: "world",
+                fixed_strings: true,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("_world_", &parsed.search, "earth"),
+                None
+            );
+        }
+
+        #[test]
+        fn test_word_boundaries() {
+            let search_config = SearchConfiguration {
+                search_text: "world",
+                fixed_strings: true,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match(",world-", &parsed.search, "earth"),
+                Some(",earth-".to_string())
+            );
+            let search_config = SearchConfiguration {
+                search_text: "world",
+                fixed_strings: true,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("world-word", &parsed.search, "earth"),
+                Some("earth-word".to_string())
+            );
+            let search_config = SearchConfiguration {
+                search_text: "world",
+                fixed_strings: true,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("Hello-world!", &parsed.search, "earth"),
+                Some("Hello-earth!".to_string())
+            );
+        }
+
+        #[test]
+        fn test_case_sensitive() {
+            let search_config = SearchConfiguration {
+                search_text: "world",
+                fixed_strings: true,
+                match_whole_word: true,
+                match_case: true,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("Hello WORLD", &parsed.search, "earth"),
+                None
+            );
+            let search_config = SearchConfiguration {
+                search_text: "wOrld",
+                fixed_strings: true,
+                match_whole_word: true,
+                match_case: true,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("Hello world", &parsed.search, "earth"),
+                None
+            );
+        }
+
+        #[test]
+        fn test_empty_strings() {
+            let search_config = SearchConfiguration {
+                search_text: "world",
+                fixed_strings: true,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(replacement_if_match("", &parsed.search, "earth"), None);
+            let search_config = SearchConfiguration {
+                search_text: "",
+                fixed_strings: true,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("hello world", &parsed.search, "earth"),
+                None
+            );
+        }
+
+        #[test]
+        fn test_substring_no_match() {
+            let search_config = SearchConfiguration {
+                search_text: "world",
+                fixed_strings: true,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("worldwide web", &parsed.search, "earth"),
+                None
+            );
+            let search_config = SearchConfiguration {
+                search_text: "world",
+                fixed_strings: true,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("underworld", &parsed.search, "earth"),
+                None
+            );
+        }
+
+        #[test]
+        fn test_special_regex_chars() {
+            let search_config = SearchConfiguration {
+                search_text: "(world)",
+                fixed_strings: true,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("hello (world)", &parsed.search, "earth"),
+                Some("hello earth".to_string())
+            );
+            let search_config = SearchConfiguration {
+                search_text: "world.*",
+                fixed_strings: true,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("hello world.*", &parsed.search, "ea+rth"),
+                Some("hello ea+rth".to_string())
+            );
+        }
+
+        #[test]
+        fn test_basic_regex_patterns() {
+            let re_str = r"ax*b";
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("foo axxxxb bar", &parsed.search, "NEW"),
+                Some("foo NEW bar".to_string())
+            );
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("fooaxxxxb bar", &parsed.search, "NEW"),
+                None
+            );
+        }
+
+        #[test]
+        fn test_patterns_with_spaces() {
+            let re_str = r"hel+o world";
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("say hello world!", &parsed.search, "hi earth"),
+                Some("say hi earth!".to_string())
+            );
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("helloworld", &parsed.search, "hi earth"),
+                None
+            );
+        }
+
+        #[test]
+        fn test_multiple_matches() {
+            let re_str = r"a+b+";
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("foo aab abb", &parsed.search, "X"),
+                Some("foo X X".to_string())
+            );
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("ab abaab abb", &parsed.search, "X"),
+                Some("X abaab X".to_string())
+            );
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("ababaababb", &parsed.search, "X"),
+                None
+            );
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("ab ab aab abb", &parsed.search, "X"),
+                Some("X X X X".to_string())
+            );
+        }
+
+        #[test]
+        fn test_boundary_cases() {
+            let re_str = r"foo\s*bar";
+            // At start of string
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("foo bar baz", &parsed.search, "TEST"),
+                Some("TEST baz".to_string())
+            );
+            // At end of string
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("baz foo bar", &parsed.search, "TEST"),
+                Some("baz TEST".to_string())
+            );
+            // With punctuation
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("(foo bar)", &parsed.search, "TEST"),
+                Some("(TEST)".to_string())
+            );
+        }
+
+        #[test]
+        fn test_with_punctuation() {
+            let re_str = r"a\d+b";
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("(a123b)", &parsed.search, "X"),
+                Some("(X)".to_string())
+            );
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("foo.a123b!bar", &parsed.search, "X"),
+                Some("foo.X!bar".to_string())
+            );
+        }
+
+        #[test]
+        fn test_complex_patterns() {
+            let re_str = r"[a-z]+\d+[a-z]+";
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("test9 abc123def 8xyz", &parsed.search, "NEW"),
+                Some("test9 NEW 8xyz".to_string())
+            );
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("test9abc123def8xyz", &parsed.search, "NEW"),
+                None
+            );
+        }
+
+        #[test]
+        fn test_optional_patterns() {
+            let re_str = r"colou?r";
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("my color and colour", &parsed.search, "X"),
+                Some("my X and X".to_string())
+            );
+        }
+
+        #[test]
+        fn test_empty_haystack() {
+            let re_str = r"test";
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(replacement_if_match("", &parsed.search, "NEW"), None);
+        }
+
+        #[test]
+        fn test_empty_search_regex() {
+            let re_str = r"";
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(replacement_if_match("search", &parsed.search, "NEW"), None);
+        }
+
+        #[test]
+        fn test_single_char() {
+            let re_str = r"a";
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("b a c", &parsed.search, "X"),
+                Some("b X c".to_string())
+            );
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(replacement_if_match("bac", &parsed.search, "X"), None);
+        }
+
+        #[test]
+        fn test_escaped_chars() {
+            let re_str = r"\(\d+\)";
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("test (123) foo", &parsed.search, "X"),
+                Some("test X foo".to_string())
+            );
+        }
+
+        #[test]
+        fn test_with_unicode() {
+            let re_str = r"λ\d+";
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("calc λ123 β", &parsed.search, "X"),
+                Some("calc X β".to_string())
+            );
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(replacement_if_match("calcλ123", &parsed.search, "X"), None);
+        }
+
+        #[test]
+        fn test_multiline_patterns() {
+            let re_str = r"foo\s*\n\s*bar";
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("test foo\nbar end", &parsed.search, "NEW"),
+                Some("test NEW end".to_string())
+            );
+            let search_config = SearchConfiguration {
+                search_text: re_str,
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                replacement_text: "",
+                advanced_regex: false,
+            };
+            let parsed = test_helpers::must_parse_search_config(search_config);
+            assert_eq!(
+                replacement_if_match("test foo\n  bar end", &parsed.search, "NEW"),
+                Some("test &parsed.search end".to_string())
+            );
+        }
+    }
 }

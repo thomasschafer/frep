@@ -1,5 +1,5 @@
 use frep_core::run::find_and_replace;
-use frep_core::validation::SearchConfiguration;
+use frep_core::validation::{DirConfig, SearchConfiguration};
 
 mod utils;
 
@@ -26,17 +26,19 @@ test_with_both_regex_modes_and_fixed_strings!(
         let search_config = SearchConfiguration {
             search_text: "TEST_PATTERN",
             replacement_text: "REPLACEMENT",
-            directory: temp_dir.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some(""),
-            include_hidden: false,
             fixed_strings,
             match_case: true,
             match_whole_word: false,
             advanced_regex,
         };
+        let dir_config = DirConfig {
+            directory: temp_dir.path().to_path_buf(),
+            include_globs: Some(""),
+            exclude_globs: Some(""),
+            include_hidden: false,
+        };
 
-        let result = find_and_replace(search_config);
+        let result = find_and_replace(search_config, dir_config);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success: 3 files updated".to_string());
 
@@ -84,17 +86,19 @@ test_with_both_regex_modes!(
         let search_config = SearchConfiguration {
             search_text: r"\d{3}",
             replacement_text: "XXX",
-            directory: temp_dir.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some(""),
-            include_hidden: false,
             fixed_strings: false,
             match_case: true,
             match_whole_word: false,
             advanced_regex,
         };
+        let dir_config = DirConfig {
+            directory: temp_dir.path().to_path_buf(),
+            include_globs: Some(""),
+            exclude_globs: Some(""),
+            include_hidden: false,
+        };
 
-        let result = find_and_replace(search_config);
+        let result = find_and_replace(search_config, dir_config);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success: 3 files updated".to_string());
 
@@ -136,34 +140,38 @@ test_with_both_regex_modes!(
         let search_config = SearchConfiguration {
             search_text: r"username: (\w+), email: ([^@]+)@",
             replacement_text: "user: $1 (contact: $2 at",
-            directory: temp_dir.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some(""),
-            include_hidden: false,
             fixed_strings: false,
             match_case: true,
             match_whole_word: false,
             advanced_regex,
         };
+        let dir_config = DirConfig {
+            directory: temp_dir.path().to_path_buf(),
+            include_globs: Some(""),
+            exclude_globs: Some(""),
+            include_hidden: false,
+        };
 
-        let result = find_and_replace(search_config);
+        let result = find_and_replace(search_config, dir_config);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success: 1 file updated".to_string());
 
         let search_config = SearchConfiguration {
             search_text: r"\[(\d{4})-(\d{2})-(\d{2})\]",
             replacement_text: "[$3/$2/$1]",
-            directory: temp_dir.path().to_path_buf(),
-            include_globs: Some("logs.txt"),
-            exclude_globs: Some(""),
-            include_hidden: false,
             fixed_strings: false,
             match_case: true,
             match_whole_word: false,
             advanced_regex,
         };
+        let dir_config = DirConfig {
+            directory: temp_dir.path().to_path_buf(),
+            include_globs: Some("logs.txt"),
+            exclude_globs: Some(""),
+            include_hidden: false,
+        };
 
-        let result = find_and_replace(search_config);
+        let result = find_and_replace(search_config, dir_config);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success: 1 file updated".to_string());
 
@@ -209,51 +217,57 @@ async fn test_headless_advanced_regex_features() -> anyhow::Result<()> {
     let search_config = SearchConfiguration {
         search_text: r"let(?!\s+mut)",
         replacement_text: "const",
-        directory: temp_dir.path().to_path_buf(),
-        include_globs: Some("code.rs"),
-        exclude_globs: Some(""),
-        include_hidden: false,
         fixed_strings: false,
         match_case: true,
         match_whole_word: false,
         advanced_regex: true,
     };
+    let dir_config = DirConfig {
+        directory: temp_dir.path().to_path_buf(),
+        include_globs: Some("code.rs"),
+        exclude_globs: Some(""),
+        include_hidden: false,
+    };
 
-    let result = find_and_replace(search_config);
+    let result = find_and_replace(search_config, dir_config);
     assert_eq!(result.unwrap(), "Success: 1 file updated".to_string());
 
     // Positive lookbehind - match numbers after headings
     let search_config = SearchConfiguration {
         search_text: r"(?<=# )[A-Za-z]+\s+(\d+)",
         replacement_text: "Section $1",
-        directory: temp_dir.path().to_path_buf(),
-        include_globs: Some("*.md"),
-        exclude_globs: Some(""),
-        include_hidden: false,
         fixed_strings: false,
         match_case: true,
         match_whole_word: false,
         advanced_regex: true,
     };
+    let dir_config = DirConfig {
+        directory: temp_dir.path().to_path_buf(),
+        include_globs: Some("*.md"),
+        exclude_globs: Some(""),
+        include_hidden: false,
+    };
 
-    let result = find_and_replace(search_config);
+    let result = find_and_replace(search_config, dir_config);
     assert_eq!(result.unwrap(), "Success: 1 file updated".to_string());
 
     // Add spaces after commas in CSV file
     let search_config = SearchConfiguration {
         search_text: ",",
         replacement_text: ", ",
-        directory: temp_dir.path().to_path_buf(),
-        include_globs: Some("*.csv"),
-        exclude_globs: Some(""),
-        include_hidden: false,
         fixed_strings: true,
         match_case: true,
         match_whole_word: false,
         advanced_regex: true,
     };
+    let dir_config = DirConfig {
+        directory: temp_dir.path().to_path_buf(),
+        include_globs: Some("*.csv"),
+        exclude_globs: Some(""),
+        include_hidden: false,
+    };
 
-    let result = find_and_replace(search_config);
+    let result = find_and_replace(search_config, dir_config);
     assert_eq!(result.unwrap(), "Success: 1 file updated".to_string());
 
     assert_test_files!(
@@ -310,17 +324,19 @@ test_with_both_regex_modes_and_fixed_strings!(
         let search_config = SearchConfiguration {
             search_text: "REPLACE_ME",
             replacement_text: "REPLACED_CODE",
-            directory: temp_dir.path().to_path_buf(),
-            include_globs: Some("**/*.rs"),
-            exclude_globs: Some(""),
-            include_hidden: false,
             fixed_strings,
             match_case: true,
             match_whole_word: false,
             advanced_regex,
         };
+        let dir_config = DirConfig {
+            directory: temp_dir.path().to_path_buf(),
+            include_globs: Some("**/*.rs"),
+            exclude_globs: Some(""),
+            include_hidden: false,
+        };
 
-        let result = find_and_replace(search_config);
+        let result = find_and_replace(search_config, dir_config);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success: 4 files updated".to_string());
 
@@ -352,17 +368,19 @@ test_with_both_regex_modes_and_fixed_strings!(
         let search_config = SearchConfiguration {
             search_text: "REPLACED_CODE",
             replacement_text: "FINAL_VERSION",
-            directory: temp_dir.path().to_path_buf(),
-            include_globs: Some("**/*.rs"),
-            exclude_globs: Some("tests/**"),
-            include_hidden: false,
             fixed_strings,
             match_case: true,
             match_whole_word: false,
             advanced_regex,
         };
+        let dir_config = DirConfig {
+            directory: temp_dir.path().to_path_buf(),
+            include_globs: Some("**/*.rs"),
+            exclude_globs: Some("tests/**"),
+            include_hidden: false,
+        };
 
-        let result = find_and_replace(search_config);
+        let result = find_and_replace(search_config, dir_config);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success: 2 files updated".to_string());
 
@@ -394,17 +412,19 @@ test_with_both_regex_modes_and_fixed_strings!(
         let search_config = SearchConfiguration {
             search_text: "REPLACE_ME",
             replacement_text: "DOCS_REPLACED",
-            directory: temp_dir.path().to_path_buf(),
-            include_globs: Some("**/*.md,**/*.txt"),
-            exclude_globs: Some(""),
-            include_hidden: false,
             fixed_strings,
             match_case: true,
             match_whole_word: false,
             advanced_regex,
         };
+        let dir_config = DirConfig {
+            directory: temp_dir.path().to_path_buf(),
+            include_globs: Some("**/*.md,**/*.txt"),
+            exclude_globs: Some(""),
+            include_hidden: false,
+        };
 
-        let result = find_and_replace(search_config);
+        let result = find_and_replace(search_config, dir_config);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success: 2 files updated".to_string());
 
@@ -454,17 +474,19 @@ test_with_both_regex_modes_and_fixed_strings!(
         let search_config = SearchConfiguration {
             search_text: "whole_word",
             replacement_text: "REPLACED",
-            directory: temp_dir.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some(""),
-            include_hidden: false,
             fixed_strings,
             match_case: true,
             match_whole_word: true,
             advanced_regex,
         };
+        let dir_config = DirConfig {
+            directory: temp_dir.path().to_path_buf(),
+            include_globs: Some(""),
+            exclude_globs: Some(""),
+            include_hidden: false,
+        };
 
-        let result = find_and_replace(search_config);
+        let result = find_and_replace(search_config, dir_config);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success: 2 files updated".to_string());
 
@@ -504,17 +526,19 @@ test_with_both_regex_modes_and_fixed_strings!(
         let search_config = SearchConfiguration {
             search_text: "pattern",
             replacement_text: "REPLACED",
-            directory: temp_dir1.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some(""),
-            include_hidden: false,
             fixed_strings,
             match_case: true,
             match_whole_word: false,
             advanced_regex,
         };
+        let dir_config = DirConfig {
+            directory: temp_dir1.path().to_path_buf(),
+            include_globs: Some(""),
+            exclude_globs: Some(""),
+            include_hidden: false,
+        };
 
-        let result = find_and_replace(search_config);
+        let result = find_and_replace(search_config, dir_config);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success: 2 files updated".to_string());
 
@@ -547,17 +571,19 @@ test_with_both_regex_modes_and_fixed_strings!(
         let search_config = SearchConfiguration {
             search_text: "pattern",
             replacement_text: "variable",
-            directory: temp_dir2.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some(""),
-            include_hidden: false,
             fixed_strings,
             match_case: false,
             match_whole_word: false,
             advanced_regex,
         };
+        let dir_config = DirConfig {
+            directory: temp_dir2.path().to_path_buf(),
+            include_globs: Some(""),
+            exclude_globs: Some(""),
+            include_hidden: false,
+        };
 
-        let result = find_and_replace(search_config);
+        let result = find_and_replace(search_config, dir_config);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success: 2 files updated".to_string());
 
@@ -592,17 +618,19 @@ test_with_both_regex_modes_and_fixed_strings!(
         let search_config = SearchConfiguration {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
-            directory: temp_dir.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some(""),
-            include_hidden: false,
             fixed_strings,
             match_case: true,
             match_whole_word: false,
             advanced_regex,
         };
+        let dir_config = DirConfig {
+            directory: temp_dir.path().to_path_buf(),
+            include_globs: Some(""),
+            exclude_globs: Some(""),
+            include_hidden: false,
+        };
 
-        let result = find_and_replace(search_config);
+        let result = find_and_replace(search_config, dir_config);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success: 1 file updated".to_string());
 
@@ -640,17 +668,19 @@ test_with_both_regex_modes_and_fixed_strings!(
         let search_config = SearchConfiguration {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
-            directory: temp_dir.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some(""),
-            include_hidden: false,
             fixed_strings,
             match_case: true,
             match_whole_word: false,
             advanced_regex,
         };
+        let dir_config = DirConfig {
+            directory: temp_dir.path().to_path_buf(),
+            include_globs: Some(""),
+            exclude_globs: Some(""),
+            include_hidden: false,
+        };
 
-        let result = find_and_replace(search_config);
+        let result = find_and_replace(search_config, dir_config);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success: 2 files updated".to_string());
 
@@ -682,17 +712,19 @@ test_with_both_regex_modes_and_fixed_strings!(
         let search_config = SearchConfiguration {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
-            directory: temp_dir.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some(""),
-            include_hidden: false,
             fixed_strings,
             match_case: true,
             match_whole_word: true,
             advanced_regex,
         };
+        let dir_config = DirConfig {
+            directory: temp_dir.path().to_path_buf(),
+            include_globs: Some(""),
+            exclude_globs: Some(""),
+            include_hidden: false,
+        };
 
-        let result = find_and_replace(search_config);
+        let result = find_and_replace(search_config, dir_config);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success: 2 files updated".to_string());
 
@@ -729,17 +761,19 @@ test_with_both_regex_modes_and_fixed_strings!(
         let search_config = SearchConfiguration {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
-            directory: temp_dir.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some(""),
-            include_hidden: false, // Default behavior
             fixed_strings,
             match_case: true,
             match_whole_word: false,
             advanced_regex,
         };
+        let dir_config = DirConfig {
+            directory: temp_dir.path().to_path_buf(),
+            include_globs: Some(""),
+            exclude_globs: Some(""),
+            include_hidden: false, // Default behavior
+        };
 
-        let result = find_and_replace(search_config);
+        let result = find_and_replace(search_config, dir_config);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success: 1 file updated".to_string());
 
@@ -761,17 +795,19 @@ test_with_both_regex_modes_and_fixed_strings!(
         let search_config = SearchConfiguration {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
-            directory: temp_dir.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some(""),
-            include_hidden: true, // Include hidden files
             fixed_strings,
             match_case: true,
             match_whole_word: false,
             advanced_regex,
         };
+        let dir_config = DirConfig {
+            directory: temp_dir.path().to_path_buf(),
+            include_globs: Some(""),
+            exclude_globs: Some(""),
+            include_hidden: true, // Include hidden files
+        };
 
-        let result = find_and_replace(search_config);
+        let result = find_and_replace(search_config, dir_config);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success: 2 files updated".to_string());
 
@@ -805,17 +841,19 @@ test_with_both_regex_modes!(
         let search_config = SearchConfiguration {
             search_text: "(", // Unclosed parenthesis = invalid regex
             replacement_text: "replacement",
-            directory: temp_dir.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some(""),
-            include_hidden: false,
             fixed_strings: false,
             match_case: true,
             match_whole_word: false,
             advanced_regex,
         };
+        let dir_config = DirConfig {
+            directory: temp_dir.path().to_path_buf(),
+            include_globs: Some(""),
+            exclude_globs: Some(""),
+            include_hidden: false,
+        };
 
-        let result = find_and_replace(search_config);
+        let result = find_and_replace(search_config, dir_config);
         assert!(result.is_err());
         let err_str = result.unwrap_err().to_string();
         assert!(err_str.contains("Failed to parse search text"));
@@ -843,17 +881,19 @@ test_with_both_regex_modes_and_fixed_strings!(
         let search_config = SearchConfiguration {
             search_text: "valid",
             replacement_text: "replacement",
-            directory: temp_dir.path().to_path_buf(),
-            include_globs: Some("{{"), // Invalid glob pattern
-            exclude_globs: Some(""),
-            include_hidden: false,
             fixed_strings,
             match_case: true,
             match_whole_word: false,
             advanced_regex,
         };
+        let dir_config = DirConfig {
+            directory: temp_dir.path().to_path_buf(),
+            include_globs: Some("{{"), // Invalid glob pattern
+            exclude_globs: Some(""),
+            include_hidden: false,
+        };
 
-        let result = find_and_replace(search_config);
+        let result = find_and_replace(search_config, dir_config);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(err.to_string().contains("glob"));
@@ -913,17 +953,19 @@ test_with_both_regex_modes_and_fixed_strings!(
         let search_config = SearchConfiguration {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
-            directory: temp_dir.path().to_path_buf(),
-            include_globs: Some("*.txt"),
-            exclude_globs: Some(""),
-            include_hidden: false,
             fixed_strings,
             match_case: true,
             match_whole_word: false,
             advanced_regex,
         };
+        let dir_config = DirConfig {
+            directory: temp_dir.path().to_path_buf(),
+            include_globs: Some("*.txt"),
+            exclude_globs: Some(""),
+            include_hidden: false,
+        };
 
-        let result = find_and_replace(search_config);
+        let result = find_and_replace(search_config, dir_config);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success: 2 files updated".to_string());
 
@@ -966,18 +1008,21 @@ test_with_both_regex_modes_and_fixed_strings!(
             )
         );
 
-        let result = find_and_replace(SearchConfiguration {
+        let search_config = SearchConfiguration {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
-            directory: temp_dir.path().to_path_buf(),
-            include_globs: Some("*.txt"),
-            exclude_globs: Some(""),
-            include_hidden: false,
             fixed_strings,
             match_case: true,
             match_whole_word: false,
             advanced_regex,
-        });
+        };
+        let dir_config = DirConfig {
+            directory: temp_dir.path().to_path_buf(),
+            include_globs: Some("*.txt"),
+            exclude_globs: Some(""),
+            include_hidden: false,
+        };
+        let result = find_and_replace(search_config, dir_config);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success: 0 files updated".to_string());
 
@@ -1029,17 +1074,19 @@ test_with_both_regex_modes_and_fixed_strings!(
         let search_config = SearchConfiguration {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
-            directory: temp_dir.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some("*.txt"),
-            include_hidden: false,
             fixed_strings,
             match_case: true,
             match_whole_word: false,
             advanced_regex,
         };
+        let dir_config = DirConfig {
+            directory: temp_dir.path().to_path_buf(),
+            include_globs: Some(""),
+            exclude_globs: Some("*.txt"),
+            include_hidden: false,
+        };
 
-        let result = find_and_replace(search_config);
+        let result = find_and_replace(search_config, dir_config);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success: 2 files updated".to_string());
 
@@ -1173,17 +1220,19 @@ test_with_both_regex_modes_and_fixed_strings!(
         let search_config = SearchConfiguration {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
-            directory: temp_dir.path().to_path_buf(),
-            include_globs: Some("**/*.rs"),
-            exclude_globs: Some("tests/**"),
-            include_hidden: false,
             fixed_strings,
             match_case: true,
             match_whole_word: false,
             advanced_regex,
         };
+        let dir_config = DirConfig {
+            directory: temp_dir.path().to_path_buf(),
+            include_globs: Some("**/*.rs"),
+            exclude_globs: Some("tests/**"),
+            include_hidden: false,
+        };
 
-        let result = find_and_replace(search_config);
+        let result = find_and_replace(search_config, dir_config);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success: 3 files updated".to_string());
 
@@ -1307,17 +1356,19 @@ test_with_both_regex_modes_and_fixed_strings!(
         let search_config = SearchConfiguration {
             search_text: "PATTERN",
             replacement_text: "REPLACED",
-            directory: temp_dir.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some(""),
-            include_hidden: false,
             fixed_strings,
             match_case: true,
             match_whole_word: false,
             advanced_regex,
         };
+        let dir_config = DirConfig {
+            directory: temp_dir.path().to_path_buf(),
+            include_globs: Some(""),
+            exclude_globs: Some(""),
+            include_hidden: false,
+        };
 
-        let result = find_and_replace(search_config);
+        let result = find_and_replace(search_config, dir_config);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success: 2 files updated".to_string());
 
@@ -1372,17 +1423,19 @@ test_with_both_regex_modes!(test_no_multiline_matches, |advanced_regex| async mo
     let search_config = SearchConfiguration {
         search_text: r"START.*END",
         replacement_text: "REPLACED",
-        directory: temp_dir.path().to_path_buf(),
-        include_globs: Some(""),
-        exclude_globs: Some(""),
-        include_hidden: false,
         fixed_strings: false,
         match_case: true,
         match_whole_word: false,
         advanced_regex,
     };
+    let dir_config = DirConfig {
+        directory: temp_dir.path().to_path_buf(),
+        include_globs: Some(""),
+        exclude_globs: Some(""),
+        include_hidden: false,
+    };
 
-    let result = find_and_replace(search_config);
+    let result = find_and_replace(search_config, dir_config);
     assert!(result.is_ok());
     assert_eq!(result.unwrap(), "Success: 1 file updated".to_string());
 

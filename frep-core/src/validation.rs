@@ -141,6 +141,12 @@ pub fn parse_search_text(config: &SearchConfiguration<'_>) -> anyhow::Result<Sea
         Ok(search)
     } else {
         let mut search_regex_str = config.search_text.to_owned();
+        // First validate the regex without transformation
+        FancyRegex::new(&search_regex_str)?;
+
+        if config.fixed_strings {
+            search_regex_str = regex::escape(&search_regex_str);
+        }
         if config.match_whole_word {
             search_regex_str = format!(r"(?<![a-zA-Z0-9_]){search_regex_str}(?![a-zA-Z0-9_])");
         }
@@ -148,7 +154,7 @@ pub fn parse_search_text(config: &SearchConfiguration<'_>) -> anyhow::Result<Sea
             search_regex_str = format!(r"(?i){search_regex_str}");
         }
 
-        // Shouldn't fail as we have already verified that `search` is valid, so `unwrap` here is fine.
+        // Shouldn't fail as we have already verified that the regex is valid, so `unwrap` here is fine.
         // (Any issues will likely be with the padding we are doing in this function.)
         let fancy_regex = FancyRegex::new(&search_regex_str).unwrap();
         Ok(SearchType::PatternAdvanced(fancy_regex))
@@ -249,9 +255,16 @@ mod tests {
     #[test]
     fn test_invalid_include_glob() {
         let search_config = create_search_test_config();
+        let dir_config = DirConfig {
+            include_globs: Some("[invalid"),
+            exclude_globs: None,
+            directory: std::env::temp_dir(),
+            include_hidden: false,
+        };
         let mut error_handler = SimpleErrorHandler::new();
 
-        let result = validate_search_configuration(search_config, None, &mut error_handler);
+        let result =
+            validate_search_configuration(search_config, Some(dir_config), &mut error_handler);
 
         assert!(result.is_ok());
         assert!(matches!(
@@ -354,7 +367,7 @@ mod tests {
                 search_text: "test.regex*",
                 replacement_text: "",
                 fixed_strings: true,
-                match_whole_word: false,
+                match_whole_word: true,
                 match_case: true,
                 advanced_regex: false,
             };

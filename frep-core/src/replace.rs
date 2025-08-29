@@ -1001,13 +1001,13 @@ mod tests {
                         fixed_strings: true,
                         match_whole_word: true,
                         match_case: true,
-                        replacement_text: "",
+                        replacement_text: "earth",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("hello world", &parsed.search, "earth"),
+                        replacement_if_match("hello world", &parsed.search, &parsed.replace),
                         Some("hello earth".to_string())
                     );
                 }
@@ -1019,13 +1019,13 @@ mod tests {
                         fixed_strings: true,
                         match_whole_word: true,
                         match_case: true,
-                        replacement_text: "",
+                        replacement_text: "earth",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("hello WORLD", &parsed.search, "earth"),
+                        replacement_if_match("hello WORLD", &parsed.search, &parsed.replace),
                         None
                     );
                 }
@@ -1037,13 +1037,13 @@ mod tests {
                         fixed_strings: true,
                         match_whole_word: true,
                         match_case: true,
-                        replacement_text: "",
+                        replacement_text: "earth",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("worldwide", &parsed.search, "earth"),
+                        replacement_if_match("worldwide", &parsed.search, &parsed.replace),
                         None
                     );
                 }
@@ -1059,13 +1059,13 @@ mod tests {
                         fixed_strings: true,
                         match_whole_word: true,
                         match_case: false,
-                        replacement_text: "",
+                        replacement_text: "earth",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("hello world", &parsed.search, "earth"),
+                        replacement_if_match("hello world", &parsed.search, &parsed.replace),
                         Some("hello earth".to_string())
                     );
                 }
@@ -1077,13 +1077,13 @@ mod tests {
                         fixed_strings: true,
                         match_whole_word: true,
                         match_case: false,
-                        replacement_text: "",
+                        replacement_text: "earth",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("hello WORLD", &parsed.search, "earth"),
+                        replacement_if_match("hello WORLD", &parsed.search, &parsed.replace),
                         Some("hello earth".to_string())
                     );
                 }
@@ -1095,13 +1095,13 @@ mod tests {
                         fixed_strings: true,
                         match_whole_word: true,
                         match_case: false,
-                        replacement_text: "",
+                        replacement_text: "earth",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("worldwide", &parsed.search, "earth"),
+                        replacement_if_match("worldwide", &parsed.search, &parsed.replace),
                         None
                     );
                 }
@@ -1113,13 +1113,13 @@ mod tests {
                         fixed_strings: true,
                         match_whole_word: true,
                         match_case: false,
-                        replacement_text: "",
+                        replacement_text: "restaurant",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("Hello CAFÉ table", &parsed.search, "restaurant"),
+                        replacement_if_match("Hello CAFÉ table", &parsed.search, &parsed.replace),
                         Some("Hello restaurant table".to_string())
                     );
                 }
@@ -1135,13 +1135,13 @@ mod tests {
                         fixed_strings: true,
                         match_whole_word: false,
                         match_case: true,
-                        replacement_text: "",
+                        replacement_text: "earth",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("hello world", &parsed.search, "earth"),
+                        replacement_if_match("hello world", &parsed.search, &parsed.replace),
                         Some("hello earth".to_string())
                     );
                 }
@@ -1153,13 +1153,13 @@ mod tests {
                         fixed_strings: true,
                         match_whole_word: false,
                         match_case: true,
-                        replacement_text: "",
+                        replacement_text: "earth",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("hello WORLD", &parsed.search, "earth"),
+                        replacement_if_match("hello WORLD", &parsed.search, &parsed.replace),
                         None
                     );
                 }
@@ -1171,13 +1171,13 @@ mod tests {
                         fixed_strings: true,
                         match_whole_word: false,
                         match_case: true,
-                        replacement_text: "",
+                        replacement_text: "earth",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("worldwide", &parsed.search, "earth"),
+                        replacement_if_match("worldwide", &parsed.search, &parsed.replace),
                         Some("earthwide".to_string())
                     );
                 }
@@ -1193,13 +1193,13 @@ mod tests {
                         fixed_strings: true,
                         match_whole_word: false,
                         match_case: false,
-                        replacement_text: "",
+                        replacement_text: "earth",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("hello world", &parsed.search, "earth"),
+                        replacement_if_match("hello world", &parsed.search, &parsed.replace),
                         Some("hello earth".to_string())
                     );
                 }
@@ -1211,13 +1211,13 @@ mod tests {
                         fixed_strings: true,
                         match_whole_word: false,
                         match_case: false,
-                        replacement_text: "",
+                        replacement_text: "earth",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("hello WORLD", &parsed.search, "earth"),
+                        replacement_if_match("hello WORLD", &parsed.search, &parsed.replace),
                         Some("hello earth".to_string())
                     );
                 }
@@ -1229,13 +1229,13 @@ mod tests {
                         fixed_strings: true,
                         match_whole_word: false,
                         match_case: false,
-                        replacement_text: "",
+                        replacement_text: "earth",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("WORLDWIDE", &parsed.search, "earth"),
+                        replacement_if_match("WORLDWIDE", &parsed.search, &parsed.replace),
                         Some("earthWIDE".to_string())
                     );
                 }
@@ -1258,13 +1258,13 @@ mod tests {
                         fixed_strings: false,
                         match_whole_word: true,
                         match_case: true,
-                        replacement_text: "",
+                        replacement_text: "earth",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("hello world", &parsed.search, "earth"),
+                        replacement_if_match("hello world", &parsed.search, &parsed.replace),
                         Some("hello earth".to_string())
                     );
                 }
@@ -1277,13 +1277,13 @@ mod tests {
                         fixed_strings: false,
                         match_whole_word: true,
                         match_case: true,
-                        replacement_text: "",
+                        replacement_text: "earth",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("hello WORLD", &parsed.search, "earth"),
+                        replacement_if_match("hello WORLD", &parsed.search, &parsed.replace),
                         None
                     );
                 }
@@ -1296,13 +1296,13 @@ mod tests {
                         fixed_strings: false,
                         match_whole_word: true,
                         match_case: true,
-                        replacement_text: "",
+                        replacement_text: "earth",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("worldwide", &parsed.search, "earth"),
+                        replacement_if_match("worldwide", &parsed.search, &parsed.replace),
                         None
                     );
                 }
@@ -1319,13 +1319,13 @@ mod tests {
                         fixed_strings: false,
                         match_whole_word: true,
                         match_case: false,
-                        replacement_text: "",
+                        replacement_text: "earth",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("hello WORLD", &parsed.search, "earth"),
+                        replacement_if_match("hello WORLD", &parsed.search, &parsed.replace),
                         Some("hello earth".to_string())
                     );
                 }
@@ -1338,13 +1338,13 @@ mod tests {
                         fixed_strings: false,
                         match_whole_word: true,
                         match_case: false,
-                        replacement_text: "",
+                        replacement_text: "earth",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("worldwide", &parsed.search, "earth"),
+                        replacement_if_match("worldwide", &parsed.search, &parsed.replace),
                         None
                     );
                 }
@@ -1357,13 +1357,13 @@ mod tests {
                         fixed_strings: false,
                         match_whole_word: true,
                         match_case: false,
-                        replacement_text: "",
+                        replacement_text: "NUM",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("test 123 number", &parsed.search, "NUM"),
+                        replacement_if_match("test 123 number", &parsed.search, &parsed.replace),
                         Some("test NUM number".to_string())
                     );
                 }
@@ -1376,12 +1376,15 @@ mod tests {
                         fixed_strings: false,
                         match_whole_word: true,
                         match_case: false,
-                        replacement_text: "",
+                        replacement_text: "XX",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
-                    assert!(replacement_if_match("Text 世界 more", &parsed.search, "XX").is_some());
+                    assert!(
+                        replacement_if_match("Text 世界 more", &parsed.search, &parsed.replace)
+                            .is_some()
+                    );
                     assert!(replacement_if_match("Text世界more", &parsed.search, "XX").is_none());
                 }
             }
@@ -1397,13 +1400,13 @@ mod tests {
                         fixed_strings: false,
                         match_whole_word: false,
                         match_case: true,
-                        replacement_text: "",
+                        replacement_text: "earth",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("hello world", &parsed.search, "earth"),
+                        replacement_if_match("hello world", &parsed.search, &parsed.replace),
                         Some("hello earth".to_string())
                     );
                 }
@@ -1416,13 +1419,13 @@ mod tests {
                         fixed_strings: false,
                         match_whole_word: false,
                         match_case: true,
-                        replacement_text: "",
+                        replacement_text: "earth",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("hello WORLD", &parsed.search, "earth"),
+                        replacement_if_match("hello WORLD", &parsed.search, &parsed.replace),
                         None
                     );
                 }
@@ -1435,13 +1438,13 @@ mod tests {
                         fixed_strings: false,
                         match_whole_word: false,
                         match_case: true,
-                        replacement_text: "",
+                        replacement_text: "earth",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("worldwide", &parsed.search, "earth"),
+                        replacement_if_match("worldwide", &parsed.search, &parsed.replace),
                         Some("earthwide".to_string())
                     );
                 }
@@ -1458,13 +1461,13 @@ mod tests {
                         fixed_strings: false,
                         match_whole_word: false,
                         match_case: false,
-                        replacement_text: "",
+                        replacement_text: "earth",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("hello WORLD", &parsed.search, "earth"),
+                        replacement_if_match("hello WORLD", &parsed.search, &parsed.replace),
                         Some("hello earth".to_string())
                     );
                 }
@@ -1477,13 +1480,13 @@ mod tests {
                         fixed_strings: false,
                         match_whole_word: false,
                         match_case: false,
-                        replacement_text: "",
+                        replacement_text: "earth",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("WORLDWIDE", &parsed.search, "earth"),
+                        replacement_if_match("WORLDWIDE", &parsed.search, &parsed.replace),
                         Some("earthWIDE".to_string())
                     );
                 }
@@ -1496,13 +1499,13 @@ mod tests {
                         fixed_strings: false,
                         match_whole_word: false,
                         match_case: false,
-                        replacement_text: "",
+                        replacement_text: "XXX-XX-XXXX",
                         advanced_regex: false,
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("SSN: 123-45-6789", &parsed.search, "XXX-XX-XXXX"),
+                        replacement_if_match("SSN: 123-45-6789", &parsed.search, &parsed.replace),
                         Some("SSN: XXX-XX-XXXX".to_string())
                     );
                 }
@@ -1525,12 +1528,16 @@ mod tests {
                         fixed_strings: false,
                         advanced_regex: true,
                         match_case: true,
-                        replacement_text: "",
+                        replacement_text: "domain",
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("email: user@example.com", &parsed.search, "domain"),
+                        replacement_if_match(
+                            "email: user@example.com",
+                            &parsed.search,
+                            &parsed.replace
+                        ),
                         Some("email: user@domain.com".to_string())
                     );
                 }
@@ -1544,12 +1551,12 @@ mod tests {
                         fixed_strings: false,
                         advanced_regex: true,
                         match_case: true,
-                        replacement_text: "",
+                        replacement_text: "report",
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("file: document.pdf", &parsed.search, "report"),
+                        replacement_if_match("file: document.pdf", &parsed.search, &parsed.replace),
                         Some("file: report.pdf".to_string())
                     );
                 }
@@ -1563,12 +1570,12 @@ mod tests {
                         fixed_strings: false,
                         advanced_regex: true,
                         match_case: true,
-                        replacement_text: "",
+                        replacement_text: "earth",
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("hello WORLD", &parsed.search, "earth"),
+                        replacement_if_match("hello WORLD", &parsed.search, &parsed.replace),
                         None
                     );
                 }
@@ -1586,12 +1593,16 @@ mod tests {
                         fixed_strings: false,
                         advanced_regex: true,
                         match_case: false,
-                        replacement_text: "",
+                        replacement_text: "domain",
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("email: user@EXAMPLE.com", &parsed.search, "domain"),
+                        replacement_if_match(
+                            "email: user@EXAMPLE.com",
+                            &parsed.search,
+                            &parsed.replace
+                        ),
                         Some("email: user@domain.com".to_string())
                     );
                 }
@@ -1605,12 +1616,12 @@ mod tests {
                         fixed_strings: false,
                         advanced_regex: true,
                         match_case: false,
-                        replacement_text: "",
+                        replacement_text: "earth",
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("worldwide", &parsed.search, "earth"),
+                        replacement_if_match("worldwide", &parsed.search, &parsed.replace),
                         None
                     );
                 }
@@ -1628,7 +1639,7 @@ mod tests {
                         fixed_strings: false,
                         advanced_regex: true,
                         match_case: true,
-                        replacement_text: "",
+                        replacement_text: "XX:XX",
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
@@ -1636,7 +1647,7 @@ mod tests {
                         replacement_if_match(
                             "Timestamp: 2023-01-15T14:30:00Z",
                             &parsed.search,
-                            "XX:XX"
+                            &parsed.replace
                         ),
                         Some("Timestamp: 2023-01-15TXX:XX:00Z".to_string())
                     );
@@ -1651,12 +1662,12 @@ mod tests {
                         fixed_strings: false,
                         advanced_regex: true,
                         match_case: true,
-                        replacement_text: "",
+                        replacement_text: "earth",
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("hello world", &parsed.search, "earth"),
+                        replacement_if_match("hello world", &parsed.search, &parsed.replace),
                         None
                     );
                 }
@@ -1674,12 +1685,16 @@ mod tests {
                         fixed_strings: false,
                         advanced_regex: true,
                         match_case: false,
-                        replacement_text: "",
+                        replacement_text: "ERROR",
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("Tag: [WARNING] message", &parsed.search, "ERROR"),
+                        replacement_if_match(
+                            "Tag: [WARNING] message",
+                            &parsed.search,
+                            &parsed.replace
+                        ),
                         Some("Tag: [ERROR] message".to_string())
                     );
                 }
@@ -1693,12 +1708,12 @@ mod tests {
                         fixed_strings: false,
                         advanced_regex: true,
                         match_case: false,
-                        replacement_text: "",
+                        replacement_text: "GREEK",
                     };
                     let parsed = test_helpers::must_parse_search_config(search_config);
 
                     assert_eq!(
-                        replacement_if_match("Symbol: αβγδ", &parsed.search, "GREEK"),
+                        replacement_if_match("Symbol: αβγδ", &parsed.search, &parsed.replace),
                         Some("Symbol: GREEK".to_string())
                     );
                 }
@@ -1712,12 +1727,12 @@ mod tests {
                 fixed_strings: true,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "earth",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("world hello world", &parsed.search, "earth"),
+                replacement_if_match("world hello world", &parsed.search, &parsed.replace),
                 Some("earth hello earth".to_string())
             );
         }
@@ -1729,12 +1744,12 @@ mod tests {
                 fixed_strings: true,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "earth",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("worldwide", &parsed.search, "earth"),
+                replacement_if_match("worldwide", &parsed.search, &parsed.replace),
                 None
             );
             let search_config = SearchConfiguration {
@@ -1742,12 +1757,12 @@ mod tests {
                 fixed_strings: true,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "earth",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("_world_", &parsed.search, "earth"),
+                replacement_if_match("_world_", &parsed.search, &parsed.replace),
                 None
             );
         }
@@ -1759,12 +1774,12 @@ mod tests {
                 fixed_strings: true,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "earth",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match(",world-", &parsed.search, "earth"),
+                replacement_if_match(",world-", &parsed.search, &parsed.replace),
                 Some(",earth-".to_string())
             );
             let search_config = SearchConfiguration {
@@ -1772,12 +1787,12 @@ mod tests {
                 fixed_strings: true,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "earth",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("world-word", &parsed.search, "earth"),
+                replacement_if_match("world-word", &parsed.search, &parsed.replace),
                 Some("earth-word".to_string())
             );
             let search_config = SearchConfiguration {
@@ -1785,12 +1800,12 @@ mod tests {
                 fixed_strings: true,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "earth",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("Hello-world!", &parsed.search, "earth"),
+                replacement_if_match("Hello-world!", &parsed.search, &parsed.replace),
                 Some("Hello-earth!".to_string())
             );
         }
@@ -1802,12 +1817,12 @@ mod tests {
                 fixed_strings: true,
                 match_whole_word: true,
                 match_case: true,
-                replacement_text: "",
+                replacement_text: "earth",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("Hello WORLD", &parsed.search, "earth"),
+                replacement_if_match("Hello WORLD", &parsed.search, &parsed.replace),
                 None
             );
             let search_config = SearchConfiguration {
@@ -1815,12 +1830,12 @@ mod tests {
                 fixed_strings: true,
                 match_whole_word: true,
                 match_case: true,
-                replacement_text: "",
+                replacement_text: "earth",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("Hello world", &parsed.search, "earth"),
+                replacement_if_match("Hello world", &parsed.search, &parsed.replace),
                 None
             );
         }
@@ -1832,22 +1847,25 @@ mod tests {
                 fixed_strings: true,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "earth",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
-            assert_eq!(replacement_if_match("", &parsed.search, "earth"), None);
+            assert_eq!(
+                replacement_if_match("", &parsed.search, &parsed.replace),
+                None
+            );
             let search_config = SearchConfiguration {
                 search_text: "",
                 fixed_strings: true,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "earth",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("hello world", &parsed.search, "earth"),
+                replacement_if_match("hello world", &parsed.search, &parsed.replace),
                 None
             );
         }
@@ -1859,12 +1877,12 @@ mod tests {
                 fixed_strings: true,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "earth",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("worldwide web", &parsed.search, "earth"),
+                replacement_if_match("worldwide web", &parsed.search, &parsed.replace),
                 None
             );
             let search_config = SearchConfiguration {
@@ -1872,12 +1890,12 @@ mod tests {
                 fixed_strings: true,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "earth",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("underworld", &parsed.search, "earth"),
+                replacement_if_match("underworld", &parsed.search, &parsed.replace),
                 None
             );
         }
@@ -1889,12 +1907,12 @@ mod tests {
                 fixed_strings: true,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "earth",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("hello (world)", &parsed.search, "earth"),
+                replacement_if_match("hello (world)", &parsed.search, &parsed.replace),
                 Some("hello earth".to_string())
             );
             let search_config = SearchConfiguration {
@@ -1902,12 +1920,12 @@ mod tests {
                 fixed_strings: true,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "ea+rth",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("hello world.*", &parsed.search, "ea+rth"),
+                replacement_if_match("hello world.*", &parsed.search, &parsed.replace),
                 Some("hello ea+rth".to_string())
             );
         }
@@ -1920,12 +1938,12 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "NEW",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("foo axxxxb bar", &parsed.search, "NEW"),
+                replacement_if_match("foo axxxxb bar", &parsed.search, &parsed.replace),
                 Some("foo NEW bar".to_string())
             );
             let search_config = SearchConfiguration {
@@ -1933,12 +1951,12 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "NEW",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("fooaxxxxb bar", &parsed.search, "NEW"),
+                replacement_if_match("fooaxxxxb bar", &parsed.search, &parsed.replace),
                 None
             );
         }
@@ -1951,12 +1969,12 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "hi earth",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("say hello world!", &parsed.search, "hi earth"),
+                replacement_if_match("say hello world!", &parsed.search, &parsed.replace),
                 Some("say hi earth!".to_string())
             );
             let search_config = SearchConfiguration {
@@ -1964,12 +1982,12 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "hi earth",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("helloworld", &parsed.search, "hi earth"),
+                replacement_if_match("helloworld", &parsed.search, &parsed.replace),
                 None
             );
         }
@@ -1982,12 +2000,12 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "X",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("foo aab abb", &parsed.search, "X"),
+                replacement_if_match("foo aab abb", &parsed.search, &parsed.replace),
                 Some("foo X X".to_string())
             );
             let search_config = SearchConfiguration {
@@ -1995,12 +2013,12 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "X",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("ab abaab abb", &parsed.search, "X"),
+                replacement_if_match("ab abaab abb", &parsed.search, &parsed.replace),
                 Some("X abaab X".to_string())
             );
             let search_config = SearchConfiguration {
@@ -2008,12 +2026,12 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "X",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("ababaababb", &parsed.search, "X"),
+                replacement_if_match("ababaababb", &parsed.search, &parsed.replace),
                 None
             );
             let search_config = SearchConfiguration {
@@ -2021,12 +2039,12 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "X",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("ab ab aab abb", &parsed.search, "X"),
+                replacement_if_match("ab ab aab abb", &parsed.search, &parsed.replace),
                 Some("X X X X".to_string())
             );
         }
@@ -2040,12 +2058,12 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "TEST",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("foo bar baz", &parsed.search, "TEST"),
+                replacement_if_match("foo bar baz", &parsed.search, &parsed.replace),
                 Some("TEST baz".to_string())
             );
             // At end of string
@@ -2054,12 +2072,12 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "TEST",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("baz foo bar", &parsed.search, "TEST"),
+                replacement_if_match("baz foo bar", &parsed.search, &parsed.replace),
                 Some("baz TEST".to_string())
             );
             // With punctuation
@@ -2068,13 +2086,13 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "TEST",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("(foo bar)", &parsed.search, "TEST"),
-                Some("(TEST)".to_string())
+                replacement_if_match("a (?( foo  bar)", &parsed.search, &parsed.replace),
+                Some("a (?( TEST)".to_string())
             );
         }
 
@@ -2086,12 +2104,12 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "X",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("(a123b)", &parsed.search, "X"),
+                replacement_if_match("(a42b)", &parsed.search, &parsed.replace),
                 Some("(X)".to_string())
             );
             let search_config = SearchConfiguration {
@@ -2099,12 +2117,12 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "X",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("foo.a123b!bar", &parsed.search, "X"),
+                replacement_if_match("foo.a123b!bar", &parsed.search, &parsed.replace),
                 Some("foo.X!bar".to_string())
             );
         }
@@ -2117,12 +2135,12 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "NEW",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("test9 abc123def 8xyz", &parsed.search, "NEW"),
+                replacement_if_match("test9 abc123def 8xyz", &parsed.search, &parsed.replace),
                 Some("test9 NEW 8xyz".to_string())
             );
             let search_config = SearchConfiguration {
@@ -2130,12 +2148,12 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "NEW",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("test9abc123def8xyz", &parsed.search, "NEW"),
+                replacement_if_match("test9abc123def8xyz", &parsed.search, &parsed.replace),
                 None
             );
         }
@@ -2148,12 +2166,12 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "X",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("my color and colour", &parsed.search, "X"),
+                replacement_if_match("my color and colour", &parsed.search, &parsed.replace),
                 Some("my X and X".to_string())
             );
         }
@@ -2166,11 +2184,14 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "NEW",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
-            assert_eq!(replacement_if_match("", &parsed.search, "NEW"), None);
+            assert_eq!(
+                replacement_if_match("", &parsed.search, &parsed.replace),
+                None
+            );
         }
 
         #[test]
@@ -2181,11 +2202,14 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "NEW",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
-            assert_eq!(replacement_if_match("search", &parsed.search, "NEW"), None);
+            assert_eq!(
+                replacement_if_match("search", &parsed.search, &parsed.replace),
+                None
+            );
         }
 
         #[test]
@@ -2196,12 +2220,12 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "X",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("b a c", &parsed.search, "X"),
+                replacement_if_match("b a c", &parsed.search, &parsed.replace),
                 Some("b X c".to_string())
             );
             let search_config = SearchConfiguration {
@@ -2209,11 +2233,14 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "X",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
-            assert_eq!(replacement_if_match("bac", &parsed.search, "X"), None);
+            assert_eq!(
+                replacement_if_match("bac", &parsed.search, &parsed.replace),
+                None
+            );
         }
 
         #[test]
@@ -2224,12 +2251,12 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "X",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("test (123) foo", &parsed.search, "X"),
+                replacement_if_match("test (123) foo", &parsed.search, &parsed.replace),
                 Some("test X foo".to_string())
             );
         }
@@ -2242,12 +2269,12 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
+                replacement_text: "X",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("calc λ123 β", &parsed.search, "X"),
+                replacement_if_match("calc λ123 β", &parsed.search, &parsed.replace),
                 Some("calc X β".to_string())
             );
             let search_config = SearchConfiguration {
@@ -2255,41 +2282,13 @@ mod tests {
                 fixed_strings: false,
                 match_whole_word: true,
                 match_case: false,
-                replacement_text: "",
-                advanced_regex: false,
-            };
-            let parsed = test_helpers::must_parse_search_config(search_config);
-            assert_eq!(replacement_if_match("calcλ123", &parsed.search, "X"), None);
-        }
-
-        #[test]
-        fn test_multiline_patterns() {
-            let re_str = r"foo\s*\n\s*bar";
-            let search_config = SearchConfiguration {
-                search_text: re_str,
-                fixed_strings: false,
-                match_whole_word: true,
-                match_case: false,
-                replacement_text: "",
+                replacement_text: "X",
                 advanced_regex: false,
             };
             let parsed = test_helpers::must_parse_search_config(search_config);
             assert_eq!(
-                replacement_if_match("test foo\nbar end", &parsed.search, "NEW"),
-                Some("test NEW end".to_string())
-            );
-            let search_config = SearchConfiguration {
-                search_text: re_str,
-                fixed_strings: false,
-                match_whole_word: true,
-                match_case: false,
-                replacement_text: "",
-                advanced_regex: false,
-            };
-            let parsed = test_helpers::must_parse_search_config(search_config);
-            assert_eq!(
-                replacement_if_match("test foo\n  bar end", &parsed.search, "NEW"),
-                Some("test &parsed.search end".to_string())
+                replacement_if_match("calcλ123", &parsed.search, &parsed.replace),
+                None
             );
         }
     }

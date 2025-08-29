@@ -136,6 +136,28 @@ fn main() -> anyhow::Result<()> {
     validate_args(&args, stdin_content.as_ref())?;
     logging::setup_logging(args.log_level)?;
 
+    let search_config = search_config_from_args(&args);
+    let results = if let Some(stdin_content) = stdin_content {
+        run::find_and_replace_text(&stdin_content, search_config)?
+    } else {
+        run::find_and_replace(search_config, dir_config_from_args(&args))?
+    };
+
+    println!("{results}");
+    Ok(())
+}
+
+fn dir_config_from_args(args: &Args) -> DirConfig<'_> {
+    let dir_config = DirConfig {
+        include_globs: args.include_files.as_deref(),
+        exclude_globs: args.exclude_files.as_deref(),
+        include_hidden: args.hidden,
+        directory: args.directory.clone(),
+    };
+    dir_config
+}
+
+fn search_config_from_args(args: &Args) -> SearchConfig<'_> {
     let search_config = SearchConfig {
         search_text: &args.search_text,
         replacement_text: args.replace_text.as_deref().unwrap_or(""),
@@ -144,20 +166,7 @@ fn main() -> anyhow::Result<()> {
         match_whole_word: args.match_whole_word,
         match_case: !args.case_insensitive,
     };
-    let dir_config = DirConfig {
-        include_globs: args.include_files.as_deref(),
-        exclude_globs: args.exclude_files.as_deref(),
-        include_hidden: args.hidden,
-        directory: args.directory.clone(),
-    };
-    let results = if let Some(stdin_content) = stdin_content {
-        run::find_and_replace_text(&stdin_content, search_config)?
-    } else {
-        run::find_and_replace(search_config, dir_config)?
-    };
-
-    println!("{results}");
-    Ok(())
+    search_config
 }
 
 #[cfg(test)]

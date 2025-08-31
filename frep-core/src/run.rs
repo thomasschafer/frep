@@ -1,4 +1,7 @@
+use std::io::Cursor;
+
 use crate::{
+    line_reader::BufReadExt,
     replace::replacement_if_match,
     search::{FileSearcher, ParsedDirConfig, ParsedSearchConfig},
     validation::{
@@ -33,20 +36,28 @@ pub fn find_and_replace_text(
     let (parsed_search_config, _) = parse_config(search_config, None)?;
     let mut result = String::with_capacity(content.len());
 
-    for (i, line) in content.lines().enumerate() {
-        if i > 0 {
-            result.push('\n');
-        }
+    let cursor = Cursor::new(content);
+
+    for line_result in cursor.lines_with_endings() {
+        let (line_bytes, line_ending) = line_result?;
+
+        // Convert line bytes to string
+        let line = String::from_utf8(line_bytes)?;
+
         if let Some(replaced_line) = replacement_if_match(
-            line,
+            &line,
             &parsed_search_config.search,
             &parsed_search_config.replace,
         ) {
             result.push_str(&replaced_line);
         } else {
-            result.push_str(line);
+            result.push_str(&line);
         }
+
+        // Preserve the original line ending
+        result.push_str(line_ending.as_str());
     }
+
     Ok(result)
 }
 

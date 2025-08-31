@@ -37,7 +37,7 @@ test_with_both_regex_modes_and_fixed_strings!(
         };
         let dir_config = DirConfig {
             directory: temp_dir.path().to_path_buf(),
-            include_globs: Some(""),
+            include_globs: None,
             exclude_globs: Some(""),
             include_hidden: false,
         };
@@ -97,8 +97,8 @@ test_with_both_regex_modes!(
         };
         let dir_config = DirConfig {
             directory: temp_dir.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some(""),
+            include_globs: None,
+            exclude_globs: None,
             include_hidden: false,
         };
 
@@ -229,7 +229,7 @@ async fn test_headless_advanced_regex_features() -> anyhow::Result<()> {
     let dir_config = DirConfig {
         directory: temp_dir.path().to_path_buf(),
         include_globs: Some("code.rs"),
-        exclude_globs: Some(""),
+        exclude_globs: None,
         include_hidden: false,
     };
 
@@ -267,7 +267,7 @@ async fn test_headless_advanced_regex_features() -> anyhow::Result<()> {
     let dir_config = DirConfig {
         directory: temp_dir.path().to_path_buf(),
         include_globs: Some("*.csv"),
-        exclude_globs: Some(""),
+        exclude_globs: None,
         include_hidden: false,
     };
 
@@ -582,8 +582,8 @@ test_with_both_regex_modes_and_fixed_strings!(
         };
         let dir_config = DirConfig {
             directory: temp_dir2.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some(""),
+            include_globs: None,
+            exclude_globs: None,
             include_hidden: false,
         };
 
@@ -629,8 +629,8 @@ test_with_both_regex_modes_and_fixed_strings!(
         };
         let dir_config = DirConfig {
             directory: temp_dir.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some(""),
+            include_globs: None,
+            exclude_globs: None,
             include_hidden: false,
         };
 
@@ -679,8 +679,8 @@ test_with_both_regex_modes_and_fixed_strings!(
         };
         let dir_config = DirConfig {
             directory: temp_dir.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some(""),
+            include_globs: None,
+            exclude_globs: None,
             include_hidden: false,
         };
 
@@ -723,8 +723,8 @@ test_with_both_regex_modes_and_fixed_strings!(
         };
         let dir_config = DirConfig {
             directory: temp_dir.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some(""),
+            include_globs: None,
+            exclude_globs: None,
             include_hidden: false,
         };
 
@@ -772,8 +772,8 @@ test_with_both_regex_modes_and_fixed_strings!(
         };
         let dir_config = DirConfig {
             directory: temp_dir.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some(""),
+            include_globs: None,
+            exclude_globs: None,
             include_hidden: false, // Default behavior
         };
 
@@ -806,8 +806,8 @@ test_with_both_regex_modes_and_fixed_strings!(
         };
         let dir_config = DirConfig {
             directory: temp_dir.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some(""),
+            include_globs: None,
+            exclude_globs: None,
             include_hidden: true, // Include hidden files
         };
 
@@ -852,8 +852,8 @@ test_with_both_regex_modes!(
         };
         let dir_config = DirConfig {
             directory: temp_dir.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some(""),
+            include_globs: None,
+            exclude_globs: None,
             include_hidden: false,
         };
 
@@ -893,7 +893,7 @@ test_with_both_regex_modes_and_fixed_strings!(
         let dir_config = DirConfig {
             directory: temp_dir.path().to_path_buf(),
             include_globs: Some("{{"), // Invalid glob pattern
-            exclude_globs: Some(""),
+            exclude_globs: None,
             include_hidden: false,
         };
 
@@ -965,7 +965,7 @@ test_with_both_regex_modes_and_fixed_strings!(
         let dir_config = DirConfig {
             directory: temp_dir.path().to_path_buf(),
             include_globs: Some("*.txt"),
-            exclude_globs: Some(""),
+            exclude_globs: None,
             include_hidden: false,
         };
 
@@ -1023,7 +1023,7 @@ test_with_both_regex_modes_and_fixed_strings!(
         let dir_config = DirConfig {
             directory: temp_dir.path().to_path_buf(),
             include_globs: Some("*.txt"),
-            exclude_globs: Some(""),
+            exclude_globs: None,
             include_hidden: false,
         };
         let result = find_and_replace(search_config, dir_config);
@@ -1085,7 +1085,7 @@ test_with_both_regex_modes_and_fixed_strings!(
         };
         let dir_config = DirConfig {
             directory: temp_dir.path().to_path_buf(),
-            include_globs: Some(""),
+            include_globs: None,
             exclude_globs: Some("*.txt"),
             include_hidden: false,
         };
@@ -1367,8 +1367,8 @@ test_with_both_regex_modes_and_fixed_strings!(
         };
         let dir_config = DirConfig {
             directory: temp_dir.path().to_path_buf(),
-            include_globs: Some(""),
-            exclude_globs: Some(""),
+            include_globs: None,
+            exclude_globs: None,
             include_hidden: false,
         };
 
@@ -1434,8 +1434,8 @@ test_with_both_regex_modes!(test_no_multiline_matches, |advanced_regex| async mo
     };
     let dir_config = DirConfig {
         directory: temp_dir.path().to_path_buf(),
-        include_globs: Some(""),
-        exclude_globs: Some(""),
+        include_globs: None,
+        exclude_globs: None,
         include_hidden: false,
     };
 
@@ -1871,14 +1871,8 @@ test_with_both_regex_modes!(
 test_with_both_regex_modes_and_fixed_strings!(
     test_text_preserve_line_endings,
     |advanced_regex, fixed_strings| async move {
-        // Test with various line ending patterns
-        let input_text = indoc! {"
-            Line 1 with PATTERN
-            Line 2 with PATTERN
-            Line 3 without match
-            Line 4 with PATTERN"
-        };
-
+        // Test with LF line endings (\n)
+        let input_lf = "Line 1 with PATTERN\nLine 2 with PATTERN\nLine 3 without match\n";
         let search_config = SearchConfig {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
@@ -1888,24 +1882,16 @@ test_with_both_regex_modes_and_fixed_strings!(
             advanced_regex,
         };
 
-        let result = find_and_replace_text(input_text, search_config);
-        assert!(result.is_ok());
+        let result_lf = find_and_replace_text(input_lf, search_config);
+        assert!(result_lf.is_ok());
         assert_eq!(
-            result.unwrap(),
-            indoc! {"
-                Line 1 with REPLACEMENT
-                Line 2 with REPLACEMENT
-                Line 3 without match
-                Line 4 with REPLACEMENT"
-            }
+            result_lf.unwrap(),
+            "Line 1 with REPLACEMENT\nLine 2 with REPLACEMENT\nLine 3 without match\n"
         );
 
-        // Test with trailing newline
-        let input_text_trailing = indoc! {"
-            Line 1 with PATTERN
-            Line 2 with PATTERN"
-        };
-        let search_config_trailing = SearchConfig {
+        // Test with CRLF line endings (\r\n)
+        let input_crlf = "Line 1 with PATTERN\r\nLine 2 with PATTERN\r\nLine 3 without match\r\n";
+        let search_config_crlf = SearchConfig {
             search_text: "PATTERN",
             replacement_text: "REPLACEMENT",
             fixed_strings,
@@ -1913,14 +1899,68 @@ test_with_both_regex_modes_and_fixed_strings!(
             match_whole_word: false,
             advanced_regex,
         };
-        let result_trailing = find_and_replace_text(input_text_trailing, search_config_trailing);
-        assert!(result_trailing.is_ok());
+
+        let result_crlf = find_and_replace_text(input_crlf, search_config_crlf);
+        assert!(result_crlf.is_ok());
         assert_eq!(
-            result_trailing.unwrap(),
-            indoc! {"
-                Line 1 with REPLACEMENT
-                Line 2 with REPLACEMENT"
-            }
+            result_crlf.unwrap(),
+            "Line 1 with REPLACEMENT\r\nLine 2 with REPLACEMENT\r\nLine 3 without match\r\n"
+        );
+
+        // Test with mixed line endings
+        let input_mixed = "Line 1 with PATTERN\nLine 2 with PATTERN\r\nLine 3 without match\n";
+        let search_config_mixed = SearchConfig {
+            search_text: "PATTERN",
+            replacement_text: "REPLACEMENT",
+            fixed_strings,
+            match_case: true,
+            match_whole_word: false,
+            advanced_regex,
+        };
+
+        let result_mixed = find_and_replace_text(input_mixed, search_config_mixed);
+        assert!(result_mixed.is_ok());
+        assert_eq!(
+            result_mixed.unwrap(),
+            "Line 1 with REPLACEMENT\nLine 2 with REPLACEMENT\r\nLine 3 without match\n"
+        );
+
+        // Test with no trailing newline
+        let input_no_trailing = "Line 1 with PATTERN\nLine 2 with PATTERN";
+        let search_config_no_trailing = SearchConfig {
+            search_text: "PATTERN",
+            replacement_text: "REPLACEMENT",
+            fixed_strings,
+            match_case: true,
+            match_whole_word: false,
+            advanced_regex,
+        };
+
+        let result_no_trailing =
+            find_and_replace_text(input_no_trailing, search_config_no_trailing);
+        assert!(result_no_trailing.is_ok());
+        assert_eq!(
+            result_no_trailing.unwrap(),
+            "Line 1 with REPLACEMENT\nLine 2 with REPLACEMENT"
+        );
+
+        // Test with empty lines
+        let input_empty_lines =
+            "Line 1 with PATTERN\n\nEmpty line above\r\n\r\nLine 4 with PATTERN\n";
+        let search_config_empty = SearchConfig {
+            search_text: "PATTERN",
+            replacement_text: "REPLACEMENT",
+            fixed_strings,
+            match_case: true,
+            match_whole_word: false,
+            advanced_regex,
+        };
+
+        let result_empty_lines = find_and_replace_text(input_empty_lines, search_config_empty);
+        assert!(result_empty_lines.is_ok());
+        assert_eq!(
+            result_empty_lines.unwrap(),
+            "Line 1 with REPLACEMENT\n\nEmpty line above\r\n\r\nLine 4 with REPLACEMENT\n"
         );
 
         Ok(())

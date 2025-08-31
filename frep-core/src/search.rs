@@ -95,7 +95,7 @@ pub struct RegexOptions {
 
 #[derive(Clone, Debug)]
 pub struct ParsedSearchConfig {
-    /// The pattern to search for (fixed string or regex). This should have been transformed with TODO
+    /// The pattern to search for (fixed string or regex). Must be produced by `validation::transform_search(...)`
     pub search: SearchType,
     /// The text to replace matches with
     pub replace: String,

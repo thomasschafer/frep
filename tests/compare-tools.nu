@@ -239,7 +239,7 @@ def test_stdin_processing [frep_binary: string] {
     let test_input = "hello world foo bar"
     let result1 = (do { echo $test_input | ^$frep_binary "foo" "baz" } | complete)
 
-    if $result1.exit_code != 0 or (not ($result1.stdout | str contains "hello world baz bar")) {
+    if $result1.exit_code != 0 or ($result1.stdout != "hello world baz bar") {
         print "❌ FAILED: frep basic stdin processing failed"
         print $"Exit code: ($result1.exit_code)"
         print $"Stderr: ($result1.stderr)"
@@ -249,7 +249,7 @@ def test_stdin_processing [frep_binary: string] {
 
     # Test regex with stdin
     let result2 = (do { echo "123 456 789" | ^$frep_binary '\d{3}' 'XXX' } | complete)
-    if $result2.exit_code != 0 or (not ($result2.stdout | str contains "XXX XXX XXX")) {
+    if $result2.exit_code != 0 or ($result2.stdout != "XXX XXX XXX") {
         print "❌ FAILED: frep regex stdin processing failed"
         print $"Exit code: ($result2.exit_code)"
         print $"Stderr: ($result2.stderr)"
@@ -259,7 +259,7 @@ def test_stdin_processing [frep_binary: string] {
 
     # Test case insensitive with stdin
     let result3 = (do { echo "Hello WORLD" | ^$frep_binary 'hello' 'hi' --case-insensitive } | complete)
-    if $result3.exit_code != 0 or (not ($result3.stdout | str contains "hi WORLD")) {
+    if $result3.exit_code != 0 or ($result3.stdout != "hi WORLD") {
         print "❌ FAILED: frep case insensitive stdin processing failed"
         print $"Exit code: ($result3.exit_code)"
         print $"Stderr: ($result3.stderr)"
@@ -269,7 +269,7 @@ def test_stdin_processing [frep_binary: string] {
 
     # Test whole word matching with stdin
     let result4 = (do { echo "test_word and test" | ^$frep_binary 'test' 'exam' --match-whole-word } | complete)
-    if $result4.exit_code != 0 or (not ($result4.stdout | str contains "test_word and exam")) {
+    if $result4.exit_code != 0 or ($result4.stdout != "test_word and exam") {
         print "❌ FAILED: frep whole word stdin processing failed"
         print $"Exit code: ($result4.exit_code)"
         print $"Stderr: ($result4.stderr)"

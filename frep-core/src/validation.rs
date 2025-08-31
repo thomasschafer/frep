@@ -140,13 +140,15 @@ pub fn parse_search_text(config: &SearchConfig<'_>) -> anyhow::Result<SearchType
         };
         Ok(search)
     } else {
-        let mut search_regex_str = config.search_text.to_owned();
-        // First validate the regex without transformation
+        let mut search_regex_str = if config.fixed_strings {
+            regex::escape(config.search_text)
+        } else {
+            config.search_text.to_owned()
+        };
+
+        // Validate the regex without transformation
         FancyRegex::new(&search_regex_str)?;
 
-        if config.fixed_strings {
-            search_regex_str = regex::escape(&search_regex_str);
-        }
         if config.match_whole_word {
             search_regex_str = format!(r"(?<![a-zA-Z0-9_]){search_regex_str}(?![a-zA-Z0-9_])");
         }
@@ -392,6 +394,20 @@ mod tests {
                 &converted,
                 &["(?<![a-zA-Z0-9_])", "(?![a-zA-Z0-9_])", "(?i)", r"\d+"],
             );
+        }
+
+        #[test]
+        fn test_fixed_string_with_unbalanced_paren_in_case_insensitive_mode() {
+            let search_config = SearchConfig {
+                search_text: "(foo",
+                replacement_text: "",
+                fixed_strings: true,
+                match_whole_word: false,
+                match_case: false, // forces regex wrapping
+                advanced_regex: false,
+            };
+            let converted = parse_search_text(&search_config).unwrap();
+            test_helpers::assert_pattern_contains(&converted, &[r"\(foo", "(?i)"]);
         }
     }
 }

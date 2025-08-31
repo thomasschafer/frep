@@ -13,7 +13,7 @@ use frep_core::run;
 mod logging;
 
 #[derive(Parser, Debug)]
-#[command(about = "Find and replace CLI.")]
+#[command(about = "Find and replace CLI. Processes files in a directory or text from stdin.")]
 #[command(version)]
 #[allow(clippy::struct_excessive_bools)]
 struct Args {

@@ -1,18 +1,45 @@
 # frep
 
-frep is a fast find-and-replace tool. To replace the string "before" with the string "after" in the current directory:
+frep is a fast find-and-replace tool. Search and replace in files in a directory (including subdirectories), or process stdin.
+
+## Usage
+
+### Files
+
+Replace text in files within the current directory:
 
 ```sh
 frep before after
 ```
+
+Or specify an alternative directory:
+
+```sh
+frep before after --directory ./src/dir
+```
+
+### Stdin
+
+Process text from stdin:
+
+```sh
+$ echo "hello world" | frep "hello" "hi"
+hi world
+```
+
+### Options
 
 There are a number of command-line flags to change the behaviour of frep, such as:
 
 - `--fixed-strings` (`-f`) to search without regex
 - `--advanced-regex` (`-a`) to use advanced regex features such as negative lookahead (not enabled by default for improved performance)
 - `--include-files` (`-I`) and `--exclude-files` (`-E`) to include or exclude files and directories using glob matching. For instance, `-I "*.rs, *.py"` matches all files with the `.rs` or `.py` extensions, and `-E "env/**"` excludes all files in the `env` directory
+- `--case-insensitive` (`-i`) to ignore case when matching
+- `--match-whole-word` (`-w`) to only match complete words
 
 Run `frep --help` to see the full list of flags.
+
+**Note:** When processing stdin, the `--include-files`, `--exclude-files`, and `--hidden` flags are not available as they are file-system specific.
 
 ## Performance
 

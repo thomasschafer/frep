@@ -76,7 +76,7 @@ fn detect_and_read_stdin() -> anyhow::Result<Option<String>> {
     }
 
     let mut stdin_content = String::new();
-    io::stdin().read_to_string(&mut stdin_content)?;
+    io::stdin().lock().read_to_string(&mut stdin_content)?;
     Ok(Some(stdin_content))
 }
 

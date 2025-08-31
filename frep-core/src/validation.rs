@@ -409,5 +409,22 @@ mod tests {
             let converted = parse_search_text(&search_config).unwrap();
             test_helpers::assert_pattern_contains(&converted, &[r"\(foo", "(?i)"]);
         }
+
+        #[test]
+        fn test_fixed_string_with_regex_chars_case_insensitive() {
+            let search_config = SearchConfig {
+                search_text: "test.regex*+?[chars]",
+                replacement_text: "",
+                fixed_strings: true,
+                match_whole_word: false,
+                match_case: false, // forces regex wrapping
+                advanced_regex: false,
+            };
+            let converted = parse_search_text(&search_config).unwrap();
+            test_helpers::assert_pattern_contains(
+                &converted,
+                &[r"test\.regex\*\+\?\[chars\]", "(?i)"],
+            );
+        }
     }
 }

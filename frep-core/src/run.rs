@@ -69,8 +69,11 @@ fn parse_config(
 
     match validate_search_configuration(search_config, dir_config, &mut error_handler)? {
         ValidationResult::Success(parsed) => Ok(parsed),
-        ValidationResult::ValidationErrors => {
-            Err(anyhow::anyhow!("{}", error_handler.errors_str().unwrap()))
-        }
+        ValidationResult::ValidationErrors => Err(anyhow::anyhow!(
+            "{}",
+            error_handler
+                .errors_str()
+                .unwrap_or_else(|| "Unknown validation error".to_string())
+        )),
     }
 }

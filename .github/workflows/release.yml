@@ -5,6 +5,7 @@ on:
     branches: [ "main" ]
     paths:
       - 'frep/Cargo.toml'
+      - 'frep-core/Cargo.toml'
   workflow_dispatch:
 
 permissions:
@@ -16,7 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get-package-info.outputs.version }}
+      core_version: ${{ steps.get-package-info.outputs.core_version }}
       should_release: ${{ steps.check-version.outputs.exists == 'false' }}
+      publish_frep: ${{ steps.check-version.outputs.publish_frep }}
+      publish_core: ${{ steps.check-version.outputs.publish_core }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,36 +31,40 @@ jobs:
         run: |
           version=$(grep -m1 '^version = ' frep/Cargo.toml | cut -d '"' -f2)
           package_name=$(grep -m1 '^name = ' frep/Cargo.toml | cut -d '"' -f2)
+          core_version=$(grep -m1 '^version = ' frep-core/Cargo.toml | cut -d '"' -f2)
           echo "version=${version}" >> $GITHUB_OUTPUT
           echo "package_name=${package_name}" >> $GITHUB_OUTPUT
+          echo "core_version=${core_version}" >> $GITHUB_OUTPUT
 
       - name: Check if versions exist on crates.io
         id: check-version
         run: |
           version="${{ steps.get-package-info.outputs.version }}"
           package_name="${{ steps.get-package-info.outputs.package_name }}"
+          core_version="${{ steps.get-package-info.outputs.core_version }}"
 
           # Check if frep already exists with this version
+          frep_exists=false
           if cargo search "${package_name}" | grep -q "^${package_name} = \"${version}\""; then
+            frep_exists=true
+          fi
+
+          # Check if frep-core already exists with this version
+          core_exists=false
+          if cargo search "frep-core" | grep -q "^frep-core = \"${core_version}\""; then
+            core_exists=true
+          fi
+
+          # If both already exist, skip release
+          if [[ "$frep_exists" == "true" && "$core_exists" == "true" ]]; then
             echo "exists=true" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          # Check if frep-core is published (required dependency)
-          core_version=$(grep -m1 'frep-core.*version' frep/Cargo.toml | grep -o '"[0-9.]*"' | tr -d '"')
-          if ! cargo search "frep-core" | grep -q "^frep-core = \"${core_version}\""; then
-            echo "Required dependency frep-core v${core_version} not found on crates.io. Waiting 30 seconds and trying again..." >&2
-            # Wait and retry - the core workflow might still be running
-            sleep 30
-            if ! cargo search "frep-core" | grep -q "^frep-core = \"${core_version}\""; then
-              echo "Required dependency frep-core v${core_version} still not found on crates.io after waiting" >&2
-              exit 1
-            else
-              echo "Required dependency frep-core v${core_version} found on second attempt!" >&2
-            fi
-          fi
-
+          # Set flags for what needs to be published
           echo "exists=false" >> $GITHUB_OUTPUT
+          echo "publish_frep=$([ "$frep_exists" == "false" ] && echo "true" || echo "false")" >> $GITHUB_OUTPUT
+          echo "publish_core=$([ "$core_exists" == "false" ] && echo "true" || echo "false")" >> $GITHUB_OUTPUT
 
   validate-crates-io:
     needs: prepare-release
@@ -233,7 +241,29 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
 
+      - name: Publish frep-core to crates.io
+        if: needs.prepare-release.outputs.publish_core == 'true'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          cd frep-core
+          cargo publish
+
+      - name: Wait for frep-core to be available
+        if: needs.prepare-release.outputs.publish_core == 'true'
+        run: |
+          echo "Waiting for frep-core to be available on crates.io..."
+          for i in {1..30}; do
+            if cargo search "frep-core" | grep -q "^frep-core = \"${{ needs.prepare-release.outputs.core_version }}\""; then
+              echo "frep-core is now available!"
+              break
+            fi
+            echo "Attempt $i/30: frep-core not yet available, waiting 10 seconds..."
+            sleep 10
+          done
+
       - name: Publish frep to crates.io
+        if: needs.prepare-release.outputs.publish_frep == 'true'
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |

@@ -286,7 +286,7 @@ def test_stdin_validation_errors [frep_binary: string] {
 
     # Test --hidden flag rejected with stdin
     let result1 = (do { echo "test content" | ^$frep_binary "foo" "bar" --hidden } | complete)
-    if $result1.exit_code == 0 or (not ($result1.stderr | str contains "Cannot use --hidden flag with stdin input")) {
+    if $result1.exit_code == 0 or (not ($result1.stderr | str contains "Cannot use --hidden flag when processing stdin")) {
         print "❌ FAILED: frep should reject --hidden flag with stdin"
         print $"Exit code: ($result1.exit_code)"
         print $"Stderr: ($result1.stderr)"
@@ -295,7 +295,7 @@ def test_stdin_validation_errors [frep_binary: string] {
 
     # Test --include-files rejected with stdin
     let result2 = (do { echo "test content" | ^$frep_binary "foo" "bar" --include-files "*.txt" } | complete)
-    if $result2.exit_code == 0 or (not ($result2.stderr | str contains "Cannot use --include-files with stdin input")) {
+    if $result2.exit_code == 0 or (not ($result2.stderr | str contains "Cannot use --include-files when processing stdin")) {
         print "❌ FAILED: frep should reject --include-files flag with stdin"
         print $"Exit code: ($result2.exit_code)"
         print $"Stderr: ($result2.stderr)"
@@ -304,7 +304,7 @@ def test_stdin_validation_errors [frep_binary: string] {
 
     # Test --exclude-files rejected with stdin
     let result3 = (do { echo "test content" | ^$frep_binary "foo" "bar" --exclude-files "*.txt" } | complete)
-    if $result3.exit_code == 0 or (not ($result3.stderr | str contains "Cannot use --exclude-files with stdin input")) {
+    if $result3.exit_code == 0 or (not ($result3.stderr | str contains "Cannot use --exclude-files when processing stdin")) {
         print "❌ FAILED: frep should reject --exclude-files flag with stdin"
         print $"Exit code: ($result3.exit_code)"
         print $"Stderr: ($result3.stderr)"

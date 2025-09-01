@@ -143,11 +143,11 @@ pub fn parse_search_text(config: &SearchConfig<'_>) -> anyhow::Result<SearchType
         let mut search_regex_str = if config.fixed_strings {
             regex::escape(config.search_text)
         } else {
-            config.search_text.to_owned()
+            let search = config.search_text.to_owned();
+            // Validate the regex without transformation
+            FancyRegex::new(&search)?;
+            search
         };
-
-        // Validate the regex without transformation
-        FancyRegex::new(&search_regex_str)?;
 
         if config.match_whole_word {
             search_regex_str = format!(r"(?<![a-zA-Z0-9_]){search_regex_str}(?![a-zA-Z0-9_])");

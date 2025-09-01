@@ -41,7 +41,6 @@ pub fn find_and_replace_text(
     for line_result in cursor.lines_with_endings() {
         let (line_bytes, line_ending) = line_result?;
 
-        // Convert line bytes to string
         let line = String::from_utf8(line_bytes)?;
 
         if let Some(replaced_line) = replacement_if_match(
@@ -54,7 +53,6 @@ pub fn find_and_replace_text(
             result.push_str(&line);
         }
 
-        // Preserve the original line ending
         result.push_str(line_ending.as_str());
     }
 

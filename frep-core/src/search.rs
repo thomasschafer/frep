@@ -95,7 +95,7 @@ pub struct RegexOptions {
 
 #[derive(Clone, Debug)]
 pub struct ParsedSearchConfig {
-    /// The pattern to search for (fixed string or regex). Must be produced by `validation::transform_search(...)`
+    /// The pattern to search for (fixed string or regex). Should be produced by `validation::parse_search_text`
     pub search: SearchType,
     /// The text to replace matches with
     pub replace: String,
@@ -117,13 +117,6 @@ pub struct FileSearcher {
     dir_config: ParsedDirConfig,
 }
 
-/// A file searcher that finds text patterns in files.
-///
-/// `FileSearcher` provides methods to search for text patterns in files within a directory hierarchy.
-/// It supports both fixed string and regex-based search patterns, and can handle various search
-/// options like case sensitivity and whole word matching.
-///
-/// This struct is the main entry point for file searching operations in frep-core.
 impl FileSearcher {
     pub fn new(search_config: ParsedSearchConfig, dir_config: ParsedDirConfig) -> Self {
         Self {

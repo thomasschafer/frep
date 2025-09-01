@@ -6,21 +6,21 @@ frep is a fast find-and-replace tool. Search and replace in files in a directory
 
 ### Files
 
-Replace text in files within the current directory:
+To replace text in files within the current directory:
 
 ```sh
-frep before after
+frep "before" "after"
 ```
 
 Or specify an alternative directory:
 
 ```sh
-frep before after --directory ./src/dir
+frep --directory ./src/dir before after
 ```
 
 ### Stdin
 
-Process text from stdin:
+To process text from stdin:
 
 ```sh
 $ echo "hello world" | frep "hello" "hi"

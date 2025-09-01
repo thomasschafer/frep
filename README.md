@@ -15,7 +15,7 @@ frep "before" "after"
 Or specify an alternative directory:
 
 ```sh
-frep --directory ./src/dir before after
+frep --directory ./src/dir "before" "after"
 ```
 
 ### Stdin

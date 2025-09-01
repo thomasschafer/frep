@@ -62,7 +62,7 @@ pub fn find_and_replace_text(
 fn parse_config(
     search_config: SearchConfig<'_>,
     dir_config: Option<DirConfig<'_>>,
-) -> Result<(ParsedSearchConfig, Option<ParsedDirConfig>), anyhow::Error> {
+) -> anyhow::Result<(ParsedSearchConfig, Option<ParsedDirConfig>)> {
     let mut error_handler = SimpleErrorHandler::new();
 
     match validate_search_configuration(search_config, dir_config, &mut error_handler)? {

@@ -2,10 +2,11 @@ name: Release
 
 on:
   push:
-    branches: [ "main" ]
-    paths:
-      - 'frep/Cargo.toml'
-      - 'frep-core/Cargo.toml'
+    # TEMP - TODO REVERT
+    # branches: [ "main" ]
+    # paths:
+    #   - 'frep/Cargo.toml'
+    #   - 'frep-core/Cargo.toml'
   workflow_dispatch:
 
 permissions:

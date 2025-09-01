@@ -1,27 +1,30 @@
 use crossterm::style::Stylize;
 use fancy_regex::Regex as FancyRegex;
-use ignore::{overrides::Override, overrides::OverrideBuilder};
+use ignore::overrides::OverrideBuilder;
 use regex::Regex;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use crate::search::{FileSearcherConfig, SearchType};
+use crate::search::{ParsedDirConfig, ParsedSearchConfig, SearchType};
 use crate::utils;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
-pub struct SearchConfiguration<'a> {
+pub struct SearchConfig<'a> {
     pub search_text: &'a str,
     pub replacement_text: &'a str,
     pub fixed_strings: bool,
     pub advanced_regex: bool,
-    pub include_globs: Option<&'a str>,
-    pub exclude_globs: Option<&'a str>,
     pub match_whole_word: bool,
     pub match_case: bool,
-    pub include_hidden: bool,
-    pub directory: PathBuf,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DirConfig<'a> {
+    pub include_globs: Option<&'a str>,
+    pub exclude_globs: Option<&'a str>,
+    pub directory: PathBuf,
+    pub include_hidden: bool,
+}
 pub trait ValidationErrorHandler {
     fn handle_search_text_error(&mut self, error: &str, detail: &str);
     fn handle_include_files_error(&mut self, error: &str, detail: &str);
@@ -78,64 +81,93 @@ pub enum ValidationResult<T> {
     ValidationErrors,
 }
 
-pub fn validate_search_configuration<H: ValidationErrorHandler>(
-    config: SearchConfiguration<'_>,
-    error_handler: &mut H,
-) -> anyhow::Result<ValidationResult<FileSearcherConfig>> {
-    let search_pattern = parse_search_text(
-        config.search_text,
-        config.fixed_strings,
-        config.advanced_regex,
-        error_handler,
-    )?;
-
-    let overrides = parse_overrides(
-        &config.directory,
-        config.include_globs,
-        config.exclude_globs,
-        error_handler,
-    )?;
-
-    if let (ValidationResult::Success(search_pattern), ValidationResult::Success(overrides)) =
-        (search_pattern, overrides)
+impl<T> ValidationResult<T> {
+    fn map<U, F>(self, f: F) -> ValidationResult<U>
+    where
+        F: FnOnce(T) -> U,
+        Self: Sized,
     {
-        let config = FileSearcherConfig {
+        match self {
+            ValidationResult::Success(t) => ValidationResult::Success(f(t)),
+            ValidationResult::ValidationErrors => ValidationResult::ValidationErrors,
+        }
+    }
+}
+
+#[allow(clippy::needless_pass_by_value)]
+pub fn validate_search_configuration<H: ValidationErrorHandler>(
+    search_config: SearchConfig<'_>,
+    dir_config: Option<DirConfig<'_>>,
+    error_handler: &mut H,
+) -> anyhow::Result<ValidationResult<(ParsedSearchConfig, Option<ParsedDirConfig>)>> {
+    let search_pattern = parse_search_text_with_error_handler(&search_config, error_handler)?;
+
+    let parsed_dir_config = match dir_config {
+        Some(dir_config) => {
+            let overrides = parse_overrides(dir_config, error_handler)?;
+            overrides.map(Some)
+        }
+        None => ValidationResult::Success(None),
+    };
+
+    if let (
+        ValidationResult::Success(search_pattern),
+        ValidationResult::Success(parsed_dir_config),
+    ) = (search_pattern, parsed_dir_config)
+    {
+        let search_config = ParsedSearchConfig {
             search: search_pattern,
-            replace: config.replacement_text.to_owned(),
-            whole_word: config.match_whole_word,
-            match_case: config.match_case,
-            overrides,
-            root_dir: config.directory,
-            include_hidden: config.include_hidden,
+            replace: search_config.replacement_text.to_owned(),
         };
-        Ok(ValidationResult::Success(config))
+        Ok(ValidationResult::Success((
+            search_config,
+            parsed_dir_config,
+        )))
     } else {
         Ok(ValidationResult::ValidationErrors)
     }
 }
 
-fn parse_search_text_inner(
-    search_text: &str,
-    fixed_strings: bool,
-    advanced_regex: bool,
-) -> anyhow::Result<SearchType> {
-    let result = if fixed_strings {
-        SearchType::Fixed(search_text.to_string())
-    } else if advanced_regex {
-        SearchType::PatternAdvanced(FancyRegex::new(search_text)?)
+pub fn parse_search_text(config: &SearchConfig<'_>) -> anyhow::Result<SearchType> {
+    if !config.match_whole_word && config.match_case {
+        // No conversion required
+        let search = if config.fixed_strings {
+            SearchType::Fixed(config.search_text.to_string())
+        } else if config.advanced_regex {
+            SearchType::PatternAdvanced(FancyRegex::new(config.search_text)?)
+        } else {
+            SearchType::Pattern(Regex::new(config.search_text)?)
+        };
+        Ok(search)
     } else {
-        SearchType::Pattern(Regex::new(search_text)?)
-    };
-    Ok(result)
+        let mut search_regex_str = if config.fixed_strings {
+            regex::escape(config.search_text)
+        } else {
+            let search = config.search_text.to_owned();
+            // Validate the regex without transformation
+            FancyRegex::new(&search)?;
+            search
+        };
+
+        if config.match_whole_word {
+            search_regex_str = format!(r"(?<![a-zA-Z0-9_]){search_regex_str}(?![a-zA-Z0-9_])");
+        }
+        if !config.match_case {
+            search_regex_str = format!(r"(?i){search_regex_str}");
+        }
+
+        // Shouldn't fail as we have already verified that the regex is valid, so `unwrap` here is fine.
+        // (Any issues will likely be with the padding we are doing in this function.)
+        let fancy_regex = FancyRegex::new(&search_regex_str).unwrap();
+        Ok(SearchType::PatternAdvanced(fancy_regex))
+    }
 }
 
-fn parse_search_text<H: ValidationErrorHandler>(
-    search_text: &str,
-    fixed_strings: bool,
-    advanced_regex: bool,
+fn parse_search_text_with_error_handler<H: ValidationErrorHandler>(
+    config: &SearchConfig<'_>,
     error_handler: &mut H,
 ) -> anyhow::Result<ValidationResult<SearchType>> {
-    match parse_search_text_inner(search_text, fixed_strings, advanced_regex) {
+    match parse_search_text(config) {
         Ok(pattern) => Ok(ValidationResult::Success(pattern)),
         Err(e) => {
             if utils::is_regex_error(&e) {
@@ -149,21 +181,19 @@ fn parse_search_text<H: ValidationErrorHandler>(
 }
 
 fn parse_overrides<H: ValidationErrorHandler>(
-    dir: &Path,
-    include_globs: Option<&str>,
-    exclude_globs: Option<&str>,
+    dir_config: DirConfig<'_>,
     error_handler: &mut H,
-) -> anyhow::Result<ValidationResult<Override>> {
-    let mut overrides = OverrideBuilder::new(dir);
+) -> anyhow::Result<ValidationResult<ParsedDirConfig>> {
+    let mut overrides = OverrideBuilder::new(&dir_config.directory);
     let mut success = true;
 
-    if let Some(include_globs) = include_globs {
+    if let Some(include_globs) = dir_config.include_globs {
         if let Err(e) = utils::add_overrides(&mut overrides, include_globs, "") {
             error_handler.handle_include_files_error("Couldn't parse glob pattern", &e.to_string());
             success = false;
         }
     }
-    if let Some(exclude_globs) = exclude_globs {
+    if let Some(exclude_globs) = dir_config.exclude_globs {
         if let Err(e) = utils::add_overrides(&mut overrides, exclude_globs, "!") {
             error_handler.handle_exclude_files_error("Couldn't parse glob pattern", &e.to_string());
             success = false;
@@ -173,36 +203,34 @@ fn parse_overrides<H: ValidationErrorHandler>(
         return Ok(ValidationResult::ValidationErrors);
     }
 
-    Ok(ValidationResult::Success(overrides.build()?))
+    Ok(ValidationResult::Success(ParsedDirConfig {
+        overrides: overrides.build()?,
+        root_dir: dir_config.directory,
+        include_hidden: dir_config.include_hidden,
+    }))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
 
-    fn create_test_config<'a>() -> SearchConfiguration<'a> {
-        let temp_dir = TempDir::new().unwrap();
-        SearchConfiguration {
+    fn create_search_test_config<'a>() -> SearchConfig<'a> {
+        SearchConfig {
             search_text: "test",
             replacement_text: "replacement",
             fixed_strings: false,
             advanced_regex: false,
-            include_globs: Some("*.rs"),
-            exclude_globs: Some("target/*"),
             match_whole_word: false,
             match_case: false,
-            include_hidden: false,
-            directory: temp_dir.path().to_path_buf(),
         }
     }
 
     #[test]
     fn test_valid_configuration() {
-        let config = create_test_config();
+        let config = create_search_test_config();
         let mut error_handler = SimpleErrorHandler::new();
 
-        let result = validate_search_configuration(config, &mut error_handler);
+        let result = validate_search_configuration(config, None, &mut error_handler);
 
         assert!(result.is_ok());
         assert!(matches!(result.unwrap(), ValidationResult::Success(_)));
@@ -211,11 +239,11 @@ mod tests {
 
     #[test]
     fn test_invalid_regex() {
-        let mut config = create_test_config();
+        let mut config = create_search_test_config();
         config.search_text = "[invalid regex";
         let mut error_handler = SimpleErrorHandler::new();
 
-        let result = validate_search_configuration(config, &mut error_handler);
+        let result = validate_search_configuration(config, None, &mut error_handler);
 
         assert!(result.is_ok());
         assert!(matches!(
@@ -228,11 +256,17 @@ mod tests {
 
     #[test]
     fn test_invalid_include_glob() {
-        let mut config = create_test_config();
-        config.include_globs = Some("[invalid");
+        let search_config = create_search_test_config();
+        let dir_config = DirConfig {
+            include_globs: Some("[invalid"),
+            exclude_globs: None,
+            directory: std::env::temp_dir(),
+            include_hidden: false,
+        };
         let mut error_handler = SimpleErrorHandler::new();
 
-        let result = validate_search_configuration(config, &mut error_handler);
+        let result =
+            validate_search_configuration(search_config, Some(dir_config), &mut error_handler);
 
         assert!(result.is_ok());
         assert!(matches!(
@@ -245,15 +279,152 @@ mod tests {
 
     #[test]
     fn test_fixed_strings_mode() {
-        let mut config = create_test_config();
+        let mut config = create_search_test_config();
         config.search_text = "[this would be invalid regex]";
         config.fixed_strings = true;
         let mut error_handler = SimpleErrorHandler::new();
 
-        let result = validate_search_configuration(config, &mut error_handler);
+        let result = validate_search_configuration(config, None, &mut error_handler);
 
         assert!(result.is_ok());
         assert!(matches!(result.unwrap(), ValidationResult::Success(_)));
         assert!(error_handler.errors_str().is_none());
+    }
+
+    mod parse_search_text_tests {
+        use super::*;
+
+        mod test_helpers {
+            use super::*;
+
+            pub fn assert_pattern_contains(search_type: &SearchType, expected_parts: &[&str]) {
+                if let SearchType::PatternAdvanced(regex) = search_type {
+                    let pattern = regex.as_str();
+                    for part in expected_parts {
+                        assert!(
+                            pattern.contains(part),
+                            "Pattern '{pattern}' should contain '{part}'"
+                        );
+                    }
+                } else {
+                    panic!("Expected PatternAdvanced, got {search_type:?}");
+                }
+            }
+        }
+
+        #[test]
+        fn test_convert_regex_whole_word() {
+            let search_config = SearchConfig {
+                search_text: "test",
+                replacement_text: "",
+                fixed_strings: true,
+                match_whole_word: true,
+                match_case: true,
+                advanced_regex: false,
+            };
+            let converted = parse_search_text(&search_config).unwrap();
+
+            test_helpers::assert_pattern_contains(
+                &converted,
+                &["(?<![a-zA-Z0-9_])", "(?![a-zA-Z0-9_])", "test"],
+            );
+        }
+
+        #[test]
+        fn test_convert_regex_case_insensitive() {
+            let search_config = SearchConfig {
+                search_text: "Test",
+                replacement_text: "",
+                fixed_strings: true,
+                match_whole_word: false,
+                match_case: false,
+                advanced_regex: false,
+            };
+            let converted = parse_search_text(&search_config).unwrap();
+
+            test_helpers::assert_pattern_contains(&converted, &["(?i)", "Test"]);
+        }
+
+        #[test]
+        fn test_convert_regex_whole_word_and_case_insensitive() {
+            let search_config = SearchConfig {
+                search_text: "Test",
+                replacement_text: "",
+                fixed_strings: true,
+                match_whole_word: true,
+                match_case: false,
+                advanced_regex: false,
+            };
+            let converted = parse_search_text(&search_config).unwrap();
+
+            test_helpers::assert_pattern_contains(
+                &converted,
+                &["(?<![a-zA-Z0-9_])", "(?![a-zA-Z0-9_])", "(?i)", "Test"],
+            );
+        }
+
+        #[test]
+        fn test_convert_regex_escapes_special_chars() {
+            let search_config = SearchConfig {
+                search_text: "test.regex*",
+                replacement_text: "",
+                fixed_strings: true,
+                match_whole_word: true,
+                match_case: true,
+                advanced_regex: false,
+            };
+            let converted = parse_search_text(&search_config).unwrap();
+
+            test_helpers::assert_pattern_contains(&converted, &[r"test\.regex\*"]);
+        }
+
+        #[test]
+        fn test_convert_regex_from_existing_pattern() {
+            let search_config = SearchConfig {
+                search_text: r"\d+",
+                replacement_text: "",
+                fixed_strings: false,
+                match_whole_word: true,
+                match_case: false,
+                advanced_regex: false,
+            };
+            let converted = parse_search_text(&search_config).unwrap();
+
+            test_helpers::assert_pattern_contains(
+                &converted,
+                &["(?<![a-zA-Z0-9_])", "(?![a-zA-Z0-9_])", "(?i)", r"\d+"],
+            );
+        }
+
+        #[test]
+        fn test_fixed_string_with_unbalanced_paren_in_case_insensitive_mode() {
+            let search_config = SearchConfig {
+                search_text: "(foo",
+                replacement_text: "",
+                fixed_strings: true,
+                match_whole_word: false,
+                match_case: false, // forces regex wrapping
+                advanced_regex: false,
+            };
+            let converted = parse_search_text(&search_config).unwrap();
+            test_helpers::assert_pattern_contains(&converted, &[r"\(foo", "(?i)"]);
+        }
+
+        #[test]
+        fn test_fixed_string_with_regex_chars_case_insensitive() {
+            let search_config = SearchConfig {
+                search_text: "test.regex*+?[chars]",
+                replacement_text: "",
+                fixed_strings: true,
+                match_whole_word: false,
+                match_case: false, // forces regex wrapping
+                advanced_regex: false,
+            };
+            let converted = parse_search_text(&search_config).unwrap();
+            test_helpers::assert_pattern_contains(
+                &converted,
+                &[r"test\.regex\*\+\?\[chars\]", "(?i)"],
+            );
+        }
     }
 }

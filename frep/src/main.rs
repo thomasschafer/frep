@@ -1,15 +1,19 @@
 use anyhow::bail;
 use clap::Parser;
-use frep_core::validation::SearchConfiguration;
+use frep_core::validation::{DirConfig, SearchConfig};
 use simple_log::LevelFilter;
-use std::{io::IsTerminal, path::PathBuf, str::FromStr};
+use std::{
+    io::{self, IsTerminal, Read},
+    path::PathBuf,
+    str::FromStr,
+};
 
 use frep_core::run;
 
 mod logging;
 
 #[derive(Parser, Debug)]
-#[command(about = "Find and replace CLI.")]
+#[command(about = "Find and replace CLI. Processes files in a directory or text from stdin.")]
 #[command(version)]
 #[allow(clippy::struct_excessive_bools)]
 struct Args {
@@ -66,21 +70,44 @@ struct Args {
     delete: bool,
 }
 
-fn validate_args(args: &Args) -> anyhow::Result<()> {
+fn detect_and_read_stdin() -> anyhow::Result<Option<String>> {
+    if io::stdin().is_terminal() {
+        return Ok(None);
+    }
+
+    let mut stdin_content = String::new();
+    io::stdin().lock().read_to_string(&mut stdin_content)?;
+    Ok(Some(stdin_content))
+}
+
+fn validate_args(args: &Args, stdin_content: Option<&String>) -> anyhow::Result<()> {
     if args.search_text.is_empty() {
         bail!("Search text must not be empty");
     }
 
     if args.replace_text.is_none() && !args.delete {
         bail!(
-            "You must either specify either replacement text (`frep before after`) or use --delete to delete matches `(frep before --delete)`"
+            "You must specify either replacement text (`frep \"before\" \"after\"`) or use --delete to delete matches `(frep \"before\" --delete)`"
         );
     }
     if args.replace_text.is_some() && args.delete {
         bail!(
-            "You cannot specify both replacement text and the --delete flag. Use either replacement text (`frep before after`) or the --delete flag (`frep before --delete`)"
+            "You cannot specify both replacement text and the --delete flag. Use either replacement text (`frep \"before\" \"after\"`) or the --delete flag (`frep \"before\" --delete`)"
         );
     }
+
+    if stdin_content.is_some() {
+        if args.hidden {
+            bail!("Cannot use --hidden flag when processing stdin");
+        }
+        if args.include_files.is_some() {
+            bail!("Cannot use --include-files when processing stdin");
+        }
+        if args.exclude_files.is_some() {
+            bail!("Cannot use --exclude-files when processing stdin");
+        }
+    }
+
     Ok(())
 }
 
@@ -97,36 +124,42 @@ fn parse_directory(dir: &str) -> anyhow::Result<PathBuf> {
     }
 }
 
-impl<'a> From<&'a Args> for SearchConfiguration<'a> {
-    fn from(args: &'a Args) -> Self {
-        Self {
-            search_text: &args.search_text,
-            replacement_text: args.replace_text.as_deref().unwrap_or(""),
-            fixed_strings: args.fixed_strings,
-            advanced_regex: args.advanced_regex,
-            include_globs: args.include_files.as_deref(),
-            exclude_globs: args.exclude_files.as_deref(),
-            match_whole_word: args.match_whole_word,
-            match_case: !args.case_insensitive,
-            include_hidden: args.hidden,
-            directory: args.directory.clone(),
-        }
+fn main() -> anyhow::Result<()> {
+    let args = Args::parse();
+    let stdin_content = detect_and_read_stdin()?;
+
+    validate_args(&args, stdin_content.as_ref())?;
+    logging::setup_logging(args.log_level)?;
+
+    let search_config = search_config_from_args(&args);
+    if let Some(stdin_content) = stdin_content {
+        let results = run::find_and_replace_text(&stdin_content, search_config)?;
+        print!("{results}");
+    } else {
+        let results = run::find_and_replace(search_config, dir_config_from_args(&args))?;
+        println!("{results}");
+    }
+    Ok(())
+}
+
+fn dir_config_from_args(args: &Args) -> DirConfig<'_> {
+    DirConfig {
+        include_globs: args.include_files.as_deref(),
+        exclude_globs: args.exclude_files.as_deref(),
+        include_hidden: args.hidden,
+        directory: args.directory.clone(),
     }
 }
 
-fn main() -> anyhow::Result<()> {
-    let args = Args::parse();
-
-    if !std::io::stdin().is_terminal() {
-        bail!("frep does not support stdin input. Usage: frep <search> <replace>");
+fn search_config_from_args(args: &Args) -> SearchConfig<'_> {
+    SearchConfig {
+        search_text: &args.search_text,
+        replacement_text: args.replace_text.as_deref().unwrap_or(""),
+        fixed_strings: args.fixed_strings,
+        advanced_regex: args.advanced_regex,
+        match_whole_word: args.match_whole_word,
+        match_case: !args.case_insensitive,
     }
-
-    validate_args(&args)?;
-    logging::setup_logging(args.log_level)?;
-
-    let results = run::find_and_replace((&args).into())?;
-    println!("{results}");
-    Ok(())
 }
 
 #[cfg(test)]
@@ -211,7 +244,7 @@ mod tests {
             ..test_args()
         };
 
-        let result = validate_args(&args);
+        let result = validate_args(&args, None);
         assert!(result.is_ok());
     }
 
@@ -223,7 +256,7 @@ mod tests {
             ..test_args()
         };
 
-        let result = validate_args(&args);
+        let result = validate_args(&args, None);
         assert!(result.is_ok());
     }
 
@@ -235,7 +268,7 @@ mod tests {
             ..test_args()
         };
 
-        let result = validate_args(&args);
+        let result = validate_args(&args, None);
         assert!(result.is_err());
 
         let error_message = result.unwrap_err().to_string();
@@ -255,15 +288,43 @@ mod tests {
             ..test_args()
         };
 
-        let result = validate_args(&args);
+        let result = validate_args(&args, None);
         assert!(result.is_err());
 
         let error_message = result.unwrap_err().to_string();
         assert!(
-            error_message.contains("must either specify")
+            error_message.contains("must specify either")
                 && error_message.contains("replacement text")
                 && error_message.contains("--delete"),
             "Error message should mention both replacement text and --delete option"
+        );
+    }
+
+    #[test]
+    fn test_validate_args_stdin_disallows_hidden() {
+        let args = Args {
+            hidden: true,
+            ..test_args()
+        };
+        let s = String::from("input");
+        let res = validate_args(&args, Some(&s));
+        assert!(res.is_err());
+        assert!(res.unwrap_err().to_string().contains("Cannot use --hidden"));
+    }
+
+    #[test]
+    fn test_validate_args_stdin_disallows_include_exclude() {
+        let args = Args {
+            include_files: Some("**/*.rs".into()),
+            exclude_files: Some("target/**".into()),
+            ..test_args()
+        };
+        let s = String::from("input");
+        let res = validate_args(&args, Some(&s));
+        let msg = res.unwrap_err().to_string();
+        assert!(
+            msg.contains("Cannot use --include-files")
+                || msg.contains("Cannot use --exclude-files")
         );
     }
 }

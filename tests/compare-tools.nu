@@ -360,10 +360,12 @@ def main [mode: string, --update-readme, --repo-url: string = ""] {
             run_benchmark $project_dir $search_term $replace_term $frep_binary $update_readme $repo_url
         } else if $mode == "test" {
             print "Running end-to-end tests..."
-            test_find_and_replace_results $replacement_dir $all_tools $repo_url
-            test_stdin_processing $frep_binary
-            test_stdin_validation_errors $frep_binary
-            0
+            let results = [
+                (test_find_and_replace_results $replacement_dir $all_tools $repo_url)
+                (test_stdin_processing $frep_binary)
+                (test_stdin_validation_errors $frep_binary)
+            ]
+            if ($results | math sum) == 0 { 0 } else { 1 }
         }
 
         # Cleanup

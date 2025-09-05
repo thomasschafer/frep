@@ -23,7 +23,7 @@ pub fn find_and_replace(
     let num_files_replaced = searcher.walk_files_and_replace(None);
 
     Ok(format!(
-        "Success: {num_files_replaced} file{prefix} updated",
+        "Success: {num_files_replaced} file{prefix} updated\n",
         prefix = if num_files_replaced != 1 { "s" } else { "" },
     ))
 }

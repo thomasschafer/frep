@@ -132,12 +132,13 @@ fn main() -> anyhow::Result<()> {
     logging::setup_logging(args.log_level)?;
 
     let search_config = search_config_from_args(&args);
-    let results = if let Some(stdin_content) = stdin_content {
-        run::find_and_replace_text(&stdin_content, search_config)?
+    if let Some(stdin_content) = stdin_content {
+        let results = run::find_and_replace_text(&stdin_content, search_config)?;
+        print!("{results}");
     } else {
-        run::find_and_replace(search_config, dir_config_from_args(&args))?
-    };
-    print!("{results}");
+        let results = run::find_and_replace(search_config, dir_config_from_args(&args))?;
+        println!("{results}");
+    }
     Ok(())
 }
 

@@ -19,7 +19,7 @@ fancy-regex = "0.15.0"
 ignore = "0.4.23"
 log = "0.4.28"
 regex = "1.11.2"
-simple-log = "2.3.0"
+simple-log = "2.4.0"
 tempfile = "3.22.0"
 
 [dev-dependencies]

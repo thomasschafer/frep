@@ -29,6 +29,7 @@ pub fn replace_in_file(results: &mut [SearchResultWithReplacement]) -> anyhow::R
         .map(|res| (res.search_result.line_number, res))
         .collect();
 
+    let file_path = file_path.expect("File path must be present when searching in files");
     let parent_dir = file_path.parent().unwrap_or(Path::new("."));
     let temp_output_file = NamedTempFile::new_in(parent_dir)?;
 
@@ -253,7 +254,7 @@ mod tests {
     ) -> SearchResultWithReplacement {
         SearchResultWithReplacement {
             search_result: SearchResult {
-                path: PathBuf::from(path),
+                path: Some(PathBuf::from(path)),
                 line_number,
                 line: line.to_string(),
                 line_ending: LineEnding::Lf,

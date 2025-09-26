@@ -18,7 +18,7 @@ use crate::{
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SearchResult {
-    pub path: PathBuf,
+    pub path: Option<PathBuf>,
     /// 1-indexed
     pub line_number: usize,
     pub line: String,
@@ -45,7 +45,11 @@ impl SearchResultWithReplacement {
 
         let path_display = format!(
             "{}:{}",
-            self.search_result.path.display(),
+            self.search_result
+                .path
+                .clone()
+                .unwrap_or_default()
+                .display(),
             self.search_result.line_number
         );
 
@@ -362,7 +366,7 @@ pub fn search_file(path: &Path, search: &SearchType) -> anyhow::Result<Vec<Searc
         if let Ok(line) = String::from_utf8(line_bytes) {
             if contains_search(&line, search) {
                 let result = SearchResult {
-                    path: path.to_path_buf(),
+                    path: Some(path.to_path_buf()),
                     line_number,
                     line,
                     line_ending,
@@ -390,7 +394,7 @@ mod tests {
         ) -> SearchResultWithReplacement {
             SearchResultWithReplacement {
                 search_result: SearchResult {
-                    path: PathBuf::from(path),
+                    path: Some(PathBuf::from(path)),
                     line_number,
                     line: "test line".to_string(),
                     line_ending: LineEnding::Lf,

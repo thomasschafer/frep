@@ -24,11 +24,12 @@ pub fn replace_in_file(results: &mut [SearchResultWithReplacement]) -> anyhow::R
     };
     debug_assert!(results.iter().all(|r| r.search_result.path == file_path));
 
-    let mut line_map: HashMap<_, _> = results
+    let mut line_map = results
         .iter_mut()
         .map(|res| (res.search_result.line_number, res))
-        .collect();
+        .collect::<HashMap<_, _>>();
 
+    let file_path = file_path.expect("File path must be present when searching in files");
     let parent_dir = file_path.parent().unwrap_or(Path::new("."));
     let temp_output_file = NamedTempFile::new_in(parent_dir)?;
 
@@ -40,8 +41,8 @@ pub fn replace_in_file(results: &mut [SearchResultWithReplacement]) -> anyhow::R
         let output = File::create(temp_output_file.path())?;
         let mut writer = BufWriter::new(output);
 
-        for (mut line_number, line_result) in reader.lines_with_endings().enumerate() {
-            line_number += 1; // Ensure line-number is 1-indexed
+        for (idx, line_result) in reader.lines_with_endings().enumerate() {
+            let line_number = idx + 1; // Ensure line-number is 1-indexed
             let (mut line, line_ending) = line_result?;
             if let Some(res) = line_map.get_mut(&line_number) {
                 if line == res.search_result.line.as_bytes() {
@@ -253,7 +254,7 @@ mod tests {
     ) -> SearchResultWithReplacement {
         SearchResultWithReplacement {
             search_result: SearchResult {
-                path: PathBuf::from(path),
+                path: Some(PathBuf::from(path)),
                 line_number,
                 line: line.to_string(),
                 line_ending: LineEnding::Lf,

@@ -45,7 +45,11 @@ impl SearchResultWithReplacement {
 
         let path_display = format!(
             "{}:{}",
-            self.search_result.path.clone().unwrap_or_default().display(),
+            self.search_result
+                .path
+                .clone()
+                .unwrap_or_default()
+                .display(),
             self.search_result.line_number
         );
 

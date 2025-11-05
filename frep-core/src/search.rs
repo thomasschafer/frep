@@ -206,10 +206,10 @@ impl FileSearcher {
         walker.run(|| {
             let mut on_file_found = file_handler();
             Box::new(move |result| {
-                if let Some(cancelled) = cancelled {
-                    if cancelled.load(Ordering::Relaxed) {
-                        return WalkState::Quit;
-                    }
+                if let Some(cancelled) = cancelled
+                    && cancelled.load(Ordering::Relaxed)
+                {
+                    return WalkState::Quit;
                 }
 
                 let Ok(entry) = result else {
@@ -263,10 +263,10 @@ impl FileSearcher {
             let counter = num_files_replaced_in.clone();
 
             Box::new(move |result| {
-                if let Some(cancelled) = cancelled {
-                    if cancelled.load(Ordering::Relaxed) {
-                        return WalkState::Quit;
-                    }
+                if let Some(cancelled) = cancelled
+                    && cancelled.load(Ordering::Relaxed)
+                {
+                    return WalkState::Quit;
                 }
 
                 let Ok(entry) = result else {
@@ -354,6 +354,7 @@ pub fn search_file(path: &Path, search: &SearchType) -> anyhow::Result<Vec<Searc
                     "Error retrieving line {line_number} of {}: {err}",
                     path.display()
                 );
+                #[allow(clippy::unnecessary_debug_formatting)]
                 if read_errors >= 10 {
                     anyhow::bail!(
                         "Aborting search of {path:?}: too many read errors ({read_errors}). Most recent error: {err}",
@@ -363,17 +364,17 @@ pub fn search_file(path: &Path, search: &SearchType) -> anyhow::Result<Vec<Searc
             }
         };
 
-        if let Ok(line) = String::from_utf8(line_bytes) {
-            if contains_search(&line, search) {
-                let result = SearchResult {
-                    path: Some(path.to_path_buf()),
-                    line_number,
-                    line,
-                    line_ending,
-                    included: true,
-                };
-                results.push(result);
-            }
+        if let Ok(line) = String::from_utf8(line_bytes)
+            && contains_search(&line, search)
+        {
+            let result = SearchResult {
+                path: Some(path.to_path_buf()),
+                line_number,
+                line,
+                line_ending,
+                included: true,
+            };
+            results.push(result);
         }
     }
 

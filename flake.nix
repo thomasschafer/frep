@@ -3,7 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    rust-overlay.url = "github:oxalica/rust-overlay";
+    fenix.url = "github:nix-community/fenix";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -11,20 +11,16 @@
     {
       self,
       nixpkgs,
-      rust-overlay,
+      fenix,
       flake-utils,
     }:
     flake-utils.lib.eachDefaultSystem (
       system:
       let
-        overlays = [ (import rust-overlay) ];
-        pkgs = import nixpkgs {
-          inherit system overlays;
-        };
+        pkgs = import nixpkgs { inherit system; };
 
-        rustToolchain = pkgs.rust-bin.stable.latest.default.override {
-          extensions = [ "rust-src" ];
-        };
+        rustToolchain = fenix.packages.${system}.stable.toolchain;
+        inherit (pkgs.makeRustPlatform fenix.packages.${system}.stable) buildRustPackage;
 
         testDeps = with pkgs; [
           diffutils
@@ -47,7 +43,6 @@
 
         shellDeps = with pkgs; [
           rustToolchain
-          rust-analyzer
           cargo-insta
         ];
       in
@@ -74,20 +69,19 @@
           '';
         };
 
+        packages.default = buildRustPackage {
+          pname = "frep";
+          version = "dev";
+          src = ./.;
+          cargoLock.lockFile = ./Cargo.lock;
+        };
+
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = shellDeps;
-
-          shellHook = ''
-            export RUST_BACKTRACE=1
-          '';
         };
 
         devShells.benchmark = pkgs.mkShell {
           nativeBuildInputs = shellDeps ++ benchmarkDeps;
-
-          shellHook = ''
-            export RUST_BACKTRACE=1
-          '';
         };
       }
     );

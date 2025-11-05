@@ -187,17 +187,17 @@ fn parse_overrides<H: ValidationErrorHandler>(
     let mut overrides = OverrideBuilder::new(&dir_config.directory);
     let mut success = true;
 
-    if let Some(include_globs) = dir_config.include_globs {
-        if let Err(e) = utils::add_overrides(&mut overrides, include_globs, "") {
-            error_handler.handle_include_files_error("Couldn't parse glob pattern", &e.to_string());
-            success = false;
-        }
+    if let Some(include_globs) = dir_config.include_globs
+        && let Err(e) = utils::add_overrides(&mut overrides, include_globs, "")
+    {
+        error_handler.handle_include_files_error("Couldn't parse glob pattern", &e.to_string());
+        success = false;
     }
-    if let Some(exclude_globs) = dir_config.exclude_globs {
-        if let Err(e) = utils::add_overrides(&mut overrides, exclude_globs, "!") {
-            error_handler.handle_exclude_files_error("Couldn't parse glob pattern", &e.to_string());
-            success = false;
-        }
+    if let Some(exclude_globs) = dir_config.exclude_globs
+        && let Err(e) = utils::add_overrides(&mut overrides, exclude_globs, "!")
+    {
+        error_handler.handle_exclude_files_error("Couldn't parse glob pattern", &e.to_string());
+        success = false;
     }
     if !success {
         return Ok(ValidationResult::ValidationErrors);

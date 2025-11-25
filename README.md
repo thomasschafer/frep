@@ -2,6 +2,30 @@
 
 frep is a fast find-and-replace tool. Search and replace in files in a directory (including subdirectories), or process stdin.
 
+> [!WARNING]
+> 
+> This project is deprecated. You can use [scooter](https://github.com/thomasschafer/scooter) with the `--no-tui` flag instead - for example:
+> 
+> ```sh
+> # Instead of:
+> frep "before" "after"
+> 
+> # Use:
+> scooter -N -s "before" -r "after"
+> ```
+> 
+> When specifying a directory:
+> 
+> ```sh
+> # Instead of:
+> frep --directory ./src/dir "before" "after"
+> 
+> # Use:
+> scooter -N -s "before" -r "after" ./src/dir
+> ```
+> 
+> Run `scooter --help` to see all flags.
+
 ## Usage
 
 ### Files
